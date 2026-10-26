@@ -1,0 +1,138 @@
+Title: Sam-Correction: Fully Adaptive Label Noise Reduction for Medical Image Segmentation
+
+URL Source: https://arxiv.org/pdf/2610.32377v1
+
+Published Time: Mon, 26 Oct 2026 00:49:50 GMT
+
+Number of Pages: 5
+
+Markdown Content:
+# SAM-CORRECTION: FULLY ADAPTIVE LABEL NOISE REDUCTION FOR MEDICAL IMAGE SEGMENTATION 
+
+Takuro Shimaya Masahiro Saiko 
+
+Biometrics Research Laboratories, NEC Corporation, Kawasaki, Japan 
+
+ABSTRACT 
+
+The quality of the teacher label has a dramatic impact on the out-come of the machine learning process. Medical image segmentation often suffers from a noisy ground truth (GT) mask due to difficul-ties in consistent annotation. Although a recent study has proposed a promising method to curate the noisy GT mask, this requires ad-ditional well-curated GT masks that are not always accessible with-out the aid of multiple medical experts. As an alternative, we pro-pose SAM-Correction, which utilizes a foundation model to correct the noisy GT mask in a fully adaptive manner instead of manually preparing well-curated masks. In our approach, we progressively mitigate label noise via the segment anything model (SAM), where prompts are given from another segmentation network that we train concurrently. Experiments with various types of label noise derived from actual human annotations demonstrate that SAM-C achieves precise noise reduction and high-performing segmentation models trained thereby. Our method paves the way for robust model training even when clean labels are entirely unavailable. 
+
+Index Terms — Label noise, Foundation model, Lung CT 
+
+1. INTRODUCTION 
+
+Noisy mask annotations are known to degrade the performance of deep neural networks (DNN) for image segmentation tasks. This problem is particularly evident in medical images, where noise can originate from a lack of uniqueness in object boundaries, the ne-cessity of expertise, or the limited time that annotators can devote to the task [1, 2]. Label noise problems themselves have histori-cally been tackled in the context of classification tasks [3, 4]. While this approach is applicable to image segmentation by assuming an independent classification problem for each pixel, its contribution is limited due to lacking consideration of the spatial correlation of noise [2]. At present, strategies dedicated to the image segmentation context have made relatively little progress. Yao et al. recently proposed a method specific to noisy mask an-notations based on a Markov model [2]. In their method, spatial cor-rection (SC) is utilized to correct the noisy ground truth (GT) mask for training a DNN, assuming that noisy GT masks are biased, i.e., that they expand or shrink from clean GT masks by a typical length. The typical length is defined as a bias parameter and estimated by comparing the prediction from a DNN trained by noisy GTs with the corresponding well-curated clean GT prepared manually. In this paper, we refer to the above process as true validation (TV). With 
+
+> © 2024 IEEE. Personal use of this material is permitted. Permission from IEEE must be obtained for all other uses, in any current or future media, including reprint-ing/republishing this material for advertising or promotional purposes, creating new col-lective works, for resale or redistribution to servers or lists, or reuse of any copyrighted component of this work in other works.
+
+TV using additionally prepared clean GTs, SC has outperformed ex-isting methods while leaving the following concern. For medical im-ages, clean GTs are typically determined by majority voting among several noisy GTs annotated by each expert [1]. Such clean GTs re-flecting consensus among multiple experts are not always accessible due to the high annotation cost. Moreover, SC would be sub-optimal because it attempts to treat noise uniformly with the single bias pa-rameter. Instead of preparing additional clean GTs, we utilize a founda-tion model to recover clean labels only from noisy GTs. Specif-ically, we adopt the segment anything model (SAM) [5], which achieves zero-shot segmentation by the user’s prompts (e.g., boxes and masks) to specify which object to segment in a given im-age. With the aid of SAM, our proposed method, SAM-Correction (SAM-C), iteratively reduces label noise along with training a seg-mentation DNN. SAM-C aims to reproduce clean GTs akin to those obtained by majority voting, where SAM generates the most rea-sonable mask using generic image features and prompts from the trained DNN. Unlike SC, our method allows fully adaptive noise correction without additional clean GTs and the bias parameter. Our experiments using two datasets with non-synthetic noise yielded the following insights: 1. SAM-C outperformed SC in terms of the accuracy of segmenta-tion models under noisy teacher labels. 2. SAM-C achieved precise noise reduction from low-quality an-notations, while SC failed in some cases. 3. Our fully adaptive framework does not require additional well-curated GTs, and is applicable even when one cannot enlist the help of multiple clinical experts. 
+
+2. METHODS 2.1. SAM-C 
+
+The overview of SAM-C is shown in Fig. 1(a) and Algorithm 1. We assume that one can only access the dataset Dn composed of noisy GT masks Yn and corresponding images X. The aim of SAM-C is to obtain corrected GT masks Yc and train a high-performing seg-mentation DNN f (U-Net [6] in this study). Our approach consists of two key processes, pre-correction and mid-correction explained below. The specific outcomes from each process are discussed in Sec. III. The first step is to correct noisy GT masks Yn with the aid of SAM, which we call “pre-correction”. We extracted bounding boxes for each object, i.e., each connected component in Yn. These boxes and the mask were then utilized as prompts for SAM to obtain the corrected GT mask Y pre c . We then trained a DNN f using Y pre c
+
+(“pre-train” in Fig. 1(a)). arXiv:2610.32377v1 [cs.CV] 23 Oct 2026 Fig. 1 . Proposed framework and data utilized in this study. (a) Overview of SAM-C (see the main text for details). B-mix excludes the bounding box from a noisy prediction that does not overlap with any of those in Y pre c . The B-mix gate can be disabled to directly use prompts from the noisy prediction. The post-correction is not shown here. (b) Examples from LIDC-IDRI (top) and Cityscapes (bottom). 
+
+Algorithm 1 SAM-C (with pre- and mid-correction) 
+
+Input: Training dataset Dn with images X and noisy GT masks 
+
+Yn, no. of cycles Nc, and whether to use B-mix. 
+
+Output: Corrected GT masks Yc and an accurate DNN f . 
+
+> 1:
+
+Curate noisy GT masks Yn by SAM and get corrected GT masks 
+
+Y pre c (pre-correction).  
+
+> 2:
+
+Train f using Y pre c obtained by the pre-correction.  
+
+> 3:
+
+for i = 1 to Nc do  
+
+> 4:
+
+Get noisy prediction masks f (X). 
+
+> 5:
+
+if B-mix is enabled then  
+
+> 6:
+
+Get prompts via B-mix from Y pre c and f (X). 
+
+> 7:
+
+else  
+
+> 8:
+
+Get prompts directly from f (X). 
+
+> 9:
+
+end if  
+
+> 10:
+
+Get the corrected GT masks Yc (mid-correction).  
+
+> 11:
+
+Train f using Yc obtained by the mid-correction.  
+
+> 12:
+
+end for  
+
+> 13:
+
+return Yc, f
+
+The next step is to further curate the GT mask through “mid-correction” as follows. We first get bounding boxes and the mask from the noisy prediction f (X), the same as in the pre-correction. Although we can directly use these prompts to generate the corrected GT, this may cause hallucinations due to false positives by the DNN. Here, we incorporate a B-mix gate to avoid such hallucination, as depicted in Fig. 1(a). The B-mix gate excludes bounding boxes from 
+
+f (X) that do not overlap with those from Y pre c . We then obtain the corrected GT mask Yc by using the remaining bounding boxes and the noisy prediction f (X) as prompts for SAM. Note that the B-mix gate can be disabled to directly get prompts from f (X), es-pecially when hallucination is desirable for mask correction. The DNN f is then re-trained using Yc (mid-train in Fig. 1(a)). As shown in Algorithm 1, the mid-correction can be repeated any Nc
+
+times. Consequently, SAM-C has two unique hyperparameters to be determined by validation: the number of cycles Nc and whether to use the B-mix gate. After Nc cycles of the mid-correction, we finally get well-corrected GTs Yc and a DNN f predicting clean masks. We should remark that the mid-correction is partly inspired by SC, in which the corrected GT Yc is analytically calculated from the noisy prediction f (X) according to the bias parameter. The potential limitation of SC is the estimation of the bias parameter via TV, which requires manually well-curated GT masks. In contrast, SAM-C can derivate Yc by utilizing SAM instead of TV. 
+
+2.2. Datasets 
+
+Following Yao et al. [2], we utilized the LIDC-IDRI [7] and Cityscapes [8] datasets, both of which contain non-synthetic masks, i.e., human annotations with actual noise. We avoided using datasets modified with artificial noise utilized in ref. [2] to focus on effi-cacy against actual noise. LIDC-IDRI contains thorax CT scans annotated by four radiologists (see Fig. 1(b), top). Following prior studies [2,9], we extracted 2D square slices centered around nodules. The clean GT mask for test and TV was obtained by majority vot-ing. The noisy mask for training and validation was defined as “or”, “random select”, or “worst”. We obtained the “or” noisy GT mask as the union of four annotations (as done by Yao et al. [2]), which becomes more widespread than the clean GT. The “random select” mask was randomly selected from four annotations, corresponding to when data are divided among several annotators, but only one person annotates each datum. The “worst” mask was defined as one of four annotations with the lowest Dice similarity coefficient (DSC) with the clean GT mask. We finally obtained 9,335 images for train, 1,760 for validation, and 1,990 for test. The Cityscapes dataset contains 5,000 images with fine and coarse annotations (see Fig. 1(b), bottom). The coarse annotation lacks the detailed structure near the margin, which is also present in medical image datasets (see Fig. 1(b) and Fig. 2 for annotations in the LIDC-IDRI). We again followed Yao et al. [2] to preprocess the data, resulting in 2,405 images for train, 130 for validation, and 479 for test. Table 1 . DSC between the prediction of f and the clean GT. The average and the standard error over five independent trials are shown. (a) Comparison of our method with others. (b) Ablation study for pre-, mid-, and post-correction processes. 
+
+2.3. Experiments 
+
+We compared the performance of SAM-C with the baseline, SC with full TV, SC with single TV, and the oracle. Regarding the baseline, we trained the U-Net f only with the noisy GT mask Yn. SC with full TV used all clean GTs in the validation dataset to estimate the bias parameter, while SC with single TV used a single randomly selected clean GT. The performance of SC was re-evaluated with hyperparameter tuning by ourselves. For the oracle, instead of noisy GTs, clean GTs were fully used for training. Note that the oracle is not for simple comparison but rather for estimating the upper bound of improvement. The above five methods were examined under four conditions: three types of annotation noise in LIDC-IDRI and the coarse noise in Cityscapes. For LIDC-IDRI, we set Nc = 1 and used the B-mix gate, and for Cityscapes, we set Nc = 2 and disabled the B-mix gate. To evaluate the quality of the corrected GT Yc and the accuracy of the trained DNN f , the DSC with the clean GT was calculated and averaged over all images in the dataset. The DNN was trained and tested five independent times to calculate the mean and standard error of the DSC. An ablation study was also conducted, where we omitted the pre-or mid-correction to directly use Yn for the pre-train or to skip the mid-train, respectively. To check the segmentation performance of SAM itself, we also tested a “post-correction”, where the prediction by a trained DNN f was further corrected via SAM in the same way as the pre-correction. The performance of the post-correction was evaluated by the DSC between the corrected prediction with the clean GT. We also investigated combinations of these correction processes. 
+
+3. RESULTS 
+
+Our proposed SAM-C demonstrated the highest DSC (see Ta-ble 1(a)). While the oracle achieved the highest accuracy, SAM-C performed closest to this upper bound. Fig. 2 shows that the DNN trained via SAM-C successfully segmented the region where annotation noise is particularly intense for LIDC-IDRI. Fine struc-tures such as the car wheel in Cityscapes were also well recognized through SAM-C. Remarkably, SAM-C improved the performance even without additional well-curated GTs, which were required for SC to estimate the bias parameter. Although SC with single TV could improve the accuracy of f for LIDC-IDRI, this was not al-
+
+Fig. 2 . Comparison of predictions by DNN. (Left) Results for LIDC-IDRI. All methods except the oracle used GTs with “or noise”. Col-ored contours represent individual annotations. (Right) Results for Cityscapes. ways observed for Cityscapes, possibly due to overfitting the bias parameter. This suggests that a too-small amount of well-curated GTs is insufficient for SC to perform robustly under a variety of conditions in practice. Our SAM-C is, therefore, also advantageous in terms of the label acquisition cost. The ablation study further underpinned the validity of our method. We first found that pre-, mid-, and post-correction are all individually effective on their own (see Table 1(b)). Intuitively, those correction processes can remove noise in annotations or predictions that deviate from the image texture. This process does not require SAM to have medical domain knowledge. The mid-correction, in addition, leverages f (X) as prompts, where the trained DNN f
+
+acquires expert knowledge and mitigates semantically invalid noise. The quality of f (X) as the prompt was then improved over Yn,resulting in the superior performance of the mid-correction to the pre-correction. Regarding the post-correction, the DSC between the corrected prediction and the clean GT strongly depends on the compatibility of SAM with the dataset. The post-correction failed to achieve a higher DSC than the mid-correction, possibly because Table 2 . Comparison between Yn and Yc regarding DSC with clean GT in the training dataset. In the numerals, blue, red, and black represent increase, decrease, and unchanged, respectively. 
+
+SAM itself did not have enough expertise to precisely segment ob-jects. We also confirmed that combining the pre- and mid-correction resulted in robustly outperforming SC in all experimental setups. Although the combination of the mid- and post-correction achieved the highest DSC in some cases, the performance was sometimes rather inferior to SC, indicating that the post-correction is unstable across various experimental conditions. In addition to the prediction accuracy of the trained DNN, we also evaluated the quality of the corrected GT mask Yc as a teacher label. Accurate noise reduction from annotation labels is crucial not only to enhance the model accuracy but also to recover the noise-less learning process itself. Specifically, we compared the quality of Yn and Yc based on the DSC with the clean GT in the training datasets. For some cases using SC, we observed that the DSC of Yc
+
+was significantly below that of Yn, even though the model accuracy is superior for SC to the baseline (see Table 2). In contrast, our pro-posed SAM-C achieved a relatively robust reduction of annotation noise (see Table 2). This could be because SAM recognizes the im-age texture to adaptively correct the mask, unlike SC, which refers to the typical bias length to simply expand or shrink the mask. The precise correction of the teacher label by SAM-C may have led to the fine boundary structure of the prediction that was not apparent with SC (see Fig. 2). 
+
+4. DISCUSSION AND CONCLUSION 
+
+We developed SAM-C to mitigate the annotation noise in teacher labels by utilizing SAM, a foundation model for image segmenta-tion. Even without additional well-curated GT masks, SAM-C out-performed the existing methods in terms of both the prediction ac-curacy of the trained DNN f and the precise reproducibility of the clean GT mask for training. Our ablation study revealed that the mid-correction, which utilizes the prediction from the concurrently trained f to prompt SAM, played a critical role. The potential limitations of SAM-C can be seen from the results in Table 2. When using the “worst” noisy GT mask for LIDC-IDRI, the corrected GT Yc by SC was better than that of SAM-C in terms of the DSC with the clean GT. This indicates that SAM-C might not perform well when the annotation deviates too much from the image texture, preventing SAM from precisely discriminating noisy labels. However, the above limitation could be addressed by enhancing the capability of SAM—for example; we could simply use other foun-dation models such as HQ-SAM [10] or SAM-Med2D [11], which are being developed successively nowadays. Likewise, the insta-bility of the post-correction might be resolved by utilizing another foundation model compatible with the dataset domain. Optimizing the prompt given to SAM, as implemented in AutoSAM [12], might also be effective. 
+
+5. COMPLIANCE WITH ETHICAL STANDARDS 
+
+Ethical approval was not required, as confirmed by the license at-tached with the open data we used. 
+
+6. ACKNOWLEDGMENTS 
+
+The authors are employees of NEC corporation. 
+
+7. REFERENCES 
+
+[1] Le Zhang, Ryutaro Tanno, Mou-Cheng Xu, Chen Jin, Joseph Jacob, Olga Ciccarelli, Frederik Barkhof, and Daniel C. Alexander, “Disentangling Human Error from the Ground Truth in Segmentation of Medical Images,” in NeurIPS , 2020. [2] Jiachen Yao, Yikai Zhang, Songzhu Zheng, Mayank Goswami, Prateek Prasanna, and Chao Chen, “Learning to Segment from Noisy Annotations: A Spatial Correction Approach,” in ICLR ,2023. [3] Yisen Wang, Xingjun Ma, Zaiyi Chen, Yuan Luo, Jinfeng Yi, and James Bailey, “Symmetric Cross Entropy for Robust Learning With Noisy Labels,” in ICCV , 2019. [4] Sheng Liu, Jonathan Niles-Weed, Narges Razavian, and Carlos Fernandez-Granda, “Early-Learning Regularization Prevents Memorization of Noisy Labels,” in NeurIPS , 2020. [5] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer White-head, A. C. Berg, W.-Y. Lo, Piotr Doll` ar, and Ross Girshick, “Segment Anything,” arXiv:2304.02643, preprint. [6] O. Ronneberger, P. Fischer, and T. Brox, “U-Net: Convolu-tional Networks for Biomedical Image Segmentation,” in MIC-CAI , 2015. [7] S. G. Armato III et al. , “The Lung Image Database Consor-tium (LIDC) and Image Database Resource Initiative (IDRI): A Completed Reference Database of Lung Nodules on CT Scans,” Med. Phys. , vol. 38, pp. 915–931, 2011. [8] Marius Cordts, Mohamed Omran, Sebastian Ramos, Timo Re-hfeld, Markus Enzweiler, Rodrigo Benenson, Uwe Franke, Ste-fan Roth, and Bernt Schiele, “The Cityscapes Dataset for Se-mantic Urban Scene Understanding,” in CVPR , 2016. [9] Simon Kohl, Bernardino Romera-Paredes, Clemens Meyer, Jeffrey De Fauw, Joseph R. Ledsam, Klaus Maier-Hein, S. M. Ali Eslami, Danilo Jimenez Rezende, and Olaf Ron-neberger, “A Probabilistic U-Net for Segmentation of Ambigu-ous Images,” in NeurIPS , 2018. [10] Lei Ke, Mingqiao Ye, Martin Danelljan, Yifan Liu, Y.-W. Tai, C.-K. Tang, and Fisher Yu, “Segment Anything in High Qual-ity,” in NeurIPS , 2023. [11] Junlong Cheng, Jin Ye, Zhongying Deng, Jianpin Chen, Tian-bin Li, Haoyu Wang, Yanzhou Su, Ziyan Huang, Jilong Chen, Lei Jiang, Hui Sun, Junjun He, Shaoting Zhang, Min Zhu, and Yu Qiao, “SAM-Med2D,” arXiv:2308.16184, preprint. [12] Tal Shaharabany, Aviad Dahan, Raja Giryes, and Lior Wolf, “AutoSAM: Adapting SAM to Medical Images by Overload-ing the Prompt Encoder,” arXiv:2306.06370, preprint.

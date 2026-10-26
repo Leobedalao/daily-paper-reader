@@ -1,6 +1,12 @@
 {
-  "generated_at": "2026-03-06T19:11:18.471356+00:00",
-  "updated_date": "20260306",
+  "generated_at": "2026-10-26T18:37:34.859303+00:00",
+  "updated_date": "20261017-20261026",
   "carryover_days": 9,
-  "items": []
+  "tag_states": {
+    "RT-auto-seg": {
+      "updated_date": "20261017-20261026",
+      "carryover_days": 9,
+      "items": []
+    }
+  }
 }

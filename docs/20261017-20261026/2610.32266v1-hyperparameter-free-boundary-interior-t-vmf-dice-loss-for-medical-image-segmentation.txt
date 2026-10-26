@@ -1,0 +1,217 @@
+Title: Hyperparameter-Free Boundary-Interior t-vMF Dice Loss for Medical Image Segmentation
+
+URL Source: https://arxiv.org/pdf/2610.32266v1
+
+Published Time: Mon, 26 Oct 2026 00:41:43 GMT
+
+Number of Pages: 5
+
+Markdown Content:
+# HYPERPARAMETER-FREE BOUNDARY-INTERIOR T-VMF DICE LOSS FOR MEDICAL IMAGE SEGMENTATION 
+
+# Hinako Mitsuoka † Kazuhiro Hotta ‡
+
+# Meijo University, 1-501 Shiogamaguchi, Tempaku-ku, Nagoya, 468-8502, Japan 
+
+> †
+
+# 263441509@ccmailg.meijo-u.ac.jp ‡kazuhotta@meijo-u.ac.jp 
+
+ABSTRACT 
+
+Class imbalance and errors near anatomical boundaries re-main challenges in medical image segmentation, motivating loss functions that account for these difficulties. Adaptive t-vMF Dice Loss adjusts the similarity function during training but requires hyperparameter tuning. We propose Self-Tuned Boundary-Aware t-vMF Dice Loss (STB-tvMF Dice), which adapts the function separately for boundary and interior re-gions without tuning shape-adaptation parameters. Each region’s shape parameter of t-vMF function is determined from its mean prediction–target cosine similarity in the pre-ceding epoch and remains fixed throughout the current epoch. This rule maximizes the slope of the similarity function at the observed mean similarity, providing a principled basis for adaptation without validation-based parameter selection. Ex-periments on three datasets and architectures demonstrated its effectiveness. On Synapse with U-Net, STB-tvMF Dice achieved a mean DSC of 70.75%, compared with 63.03% for Adaptive t-vMF Dice Loss. Our code will be available soon. 
+
+Index Terms — Loss function, Semantic segmentation, Medical image, Hyperparameter-free learning, boundary-aware learning 
+
+1. INTRODUCTION 
+
+Medical image segmentation is challenged by substantial class imbalance and ambiguous image information near anatomical boundaries. Loss functions play an important role in determining how prediction errors are evaluated during training. Cross-entropy and Dice losses[1] provide complementary objectives based on pixel-wise classifica-tion and region overlap, respectively. Various extensions have been developed to address their limitations. Tversky loss adjusts the relative contributions of false positives and false negatives, while Focal Tversky loss emphasizes difficult predictions[2, 3]. Other approaches combine cross-entropy and Dice through additive or multiplicative formulations to incorporate both objectives[4]. Beyond selecting which errors to emphasize, the mapping from prediction–target agreement to a loss value determines how improvements in agreement influence optimization. Adaptive t-vMF Dice Loss addresses 
+
+Fig. 1 . Self-tuning mechanism and performance of STB-tvMF Dice Loss. (a) Boundary and interior shape parame-ters are updated using mean cosine similarities from the previ-ous training epoch, without hyperparameter search. (b) DSC across three datasets and three architectures. Blue dots show Adaptive t-vMF Dice Loss with λ ∈ { 2, 32 , 128 , 256 , 1024 };dotted lines connect these settings, not uncertainty intervals. Labels indicate the best λ selected retrospectively by test DSC. Red stars denote our method. this aspect by adapting a similarity function using class-wise validation performance[5]. However, its adaptation requires validation data and a manually selected scaling coefficient. Moreover, prediction agreement can differ between bound-ary and interior regions within the same class, motivating adaptation that distinguishes these regions. This raises the question of whether the similarity function can be determined directly from the learning state of each region without manual parameter search. We propose Self-Tuned Boundary-Aware t-vMF Dice Loss (STB-tvMF Dice). The proposed loss partitions pixels into boundary and interior regions using ground-truth labels and evaluates prediction-target cosine similarity separately in each region. For each region, a bounded parameter ρ controls the shape of the similarity function. We derive a self-tuning rule by maximizing the slope of this function at the observed mean cosine similarity. The resulting rule sets ρ to the mean arXiv:2610.32266v1 [cs.CV] 23 Oct 2026 cosine similarity of the corresponding region. Statistics are accumulated during training, and the mean from the preced-ing epoch determines the shape parameter for the current epoch. This procedure adapts the shape parameters using training statistics alone, without validation data or hyperpa-rameter search. Our contributions are twofold. First, we introduce a boundary-interior t-vMF Dice formulation with a self-tuning rule grounded in the local sensitivity of the similarity func-tion, eliminating manual search for loss-specific adaptation parameters. Second, we evaluated the proposed loss through experiments on Kvasir-SEG, ACDC, and Synapse[6, 7, 8] using U-Net, TransUNet, and EMCAD[9, 10, 11]. Compared with the best tested scaling-coefficient settings of Adaptive t-vMF Dice Loss, our method improved the mean Dice simi-larity coefficient (DSC) on Synapse by 7.72 and 2.56% with U-Net and TransUNet, respectively. With EMCAD, our method outperformed all compared losses on Kvasir-SEG and ACDC, and achieved a comparable DSC on Synapse for the best Adaptive t-vMF setting. Our method achieved these results without manual search for shape-adaptation parame-ters. 
+
+2. METHODOLOGY 
+
+We propose Self-Tuned Boundary-Aware t-vMF Dice Loss (STB-tvMF Dice). Unlike Adaptive t-vMF Dice Loss[5], which uses class-wise validation performance and a manually selected scaling coefficient, our method determines separate boundary and interior shape parameters directly from training similarities. 
+
+2.1. Boundary-Interior Similarity 
+
+Let pn,k (u) denote the predicted probability of class k at pixel 
+
+u in image n, and let yn,k (u) be the corresponding one-hot ground-truth label. We identify boundary pixels where the ground-truth label differs from its local average computed by 
+
+3×3 average pooling with stride one and zero padding; the re-maining pixels form the interior region. The resulting binary masks are denoted by mn,b and mn,i and are shared across classes. The neighborhood size is fixed across all datasets, and any ignored pixels are excluded from both masks. For each region r ∈ { b, i }, we compute cosine similarity between the masked prediction and target: 
+
+xn,k,r = ⟨N (pn,k ⊙ mn,r ), N (yn,k ⊙ mn,r )⟩ , (1) where ⊙ denotes element-wise multiplication and N (v) = 
+
+v/ max( ∥v∥2, ϵ norm ). The norm and inner product are com-puted over spatial positions. Boundary and interior agreement are thus evaluated separately, with one shape parameter per region shared across classes. 
+
+2.2. Bounded Parameterization and Self-Tuning 
+
+The t-vMF similarity[12] function transforms cosine similar-ity x using a nonnegative concentration parameter κ that con-trols its shape as 
+
+ϕt(x; κ) = 1 + x
+
+1 + κ(1 − x) − 1. (2) where x is the regional cosine similarity defined in Eq. (1). When κ = 0 , the function reduces to cosine similarity. We introduce the bounded shape parameter ρ = κ/ (1 + κ) ∈
+
+[0 , 1) . Substituting κ = ρ/ (1 − ρ) into Eq. (2) yields 
+
+ϕ(x; ρ) = x − ρ
+
+1 − ρx . (3) This equivalent parameterization avoids explicitly computing an unbounded κ and ensures a positive denominator for x ∈
+
+[0 , 1] and ρ < 1.Let c denote the mean prediction-target cosine similarity within a region, averaged over valid training image-class pairs as defined in Eq. (7). We determine ρ by maximizing the local sensitivity of the similarity function at x = c, measured by its slope 
+
+S(ρ; c) = ∂ϕ (x; ρ)
+
+∂x x=c
+
+= 1 − ρ2
+
+(1 − ρc )2 . (4) Differentiating with respect to ρ gives 
+
+∂S (ρ; c)
+
+∂ρ = 2( c − ρ)(1 − ρc )3 . (5) For 0 ≤ c < 1, this derivative is positive for ρ < c and negative for ρ > c . Therefore, the maximizing parameter is 
+
+ρ⋆ = c. (6) This criterion maximizes the slope of the similarity function at the regional mean, rather than the gradient magnitude of the complete loss. 
+
+2.3. Epoch-Wise Adaptation and Training Objective 
+
+During epoch e, we average regional cosine similarities as 
+
+c(e) 
+
+> r
+
+= 1
+
+|V (e) 
+
+> r
+
+|
+
+X
+
+> (n,k )∈V (e)
+> r
+
+xn,k,r , (7) where V(e) 
+
+> r
+
+includes training image-class combinations with at least one ground-truth pixel of class k in region r. Each combination is weighted equally, regardless of pixel count. The next epoch uses 
+
+ρ(e+1)  
+
+> r
+
+= min 
+
+
+
+max( c(e) 
+
+> r
+
+, 0) , 1 − ϵρ
+
+
+
+, ρ(1)  
+
+> r
+
+= 0 , (8) Table 1 . DSC (%) on three datasets using three architectures. The best result in each column is shown in bold.                                                                                                                                                 
+
+> U-Net [9] TransUNet [10] EMCAD [11] Loss Kvasir ACDC Synapse Kvasir ACDC Synapse Kvasir ACDC Synapse Cross-entropy 89.68 90.07 48.37 92.55 86.89 45.89 93.46 88.04 62.50 Dice [1] 88.98 89.67 65.02 92.65 89.58 68.19 93.50 90.04 71.10 Tversky [2] 89.28 89.86 57.52 92.40 90.31 52.41 93.65 90.04 67.97 Focal Tversky [3] 88.33 89.18 56.93 92.32 89.76 59.21 93.10 89.86 69.08 CE + Dice 90.23 90.82 65.20 92.17 89.42 66.21 92.40 89.98 70.57 CE ×Dice 86.41 87.83 48.51 91.97 85.29 47.04 92.44 85.91 62.26 TopK Dice [13] 90.84 90.59 65.28 92.11 89.54 68.12 93.63 89.62 69.45 ABeDice [14] 89.09 89.25 61.97 92.72 87.83 65.10 93.78 88.90 67.29 Adaptive t-vMF Dice [5] ( λ= 2 )89.92 90.56 63.03 92.15 89.53 65.04 93.89 90.07 69.48 Adaptive t-vMF Dice ( λ= 32 )91.33 90.80 60.31 91.55 90.40 67.30 93.74 90.96 72.48
+> Adaptive t-vMF Dice ( λ= 128 )91.56 90.86 57.17 91.61 90.16 68.65 93.62 90.99 72.24 Adaptive t-vMF Dice ( λ= 256 )91.48 90.28 60.32 91.78 90.25 69.19 93.85 90.78 71.42 Adaptive t-vMF Dice ( λ= 1024 )91.00 90.69 54.64 92.57 90.25 68.35 94.01 90.94 70.35 STB-tvMF Dice (Ours) 91.91 91.92 70.75 92.52 90.32 71.75 94.33 91.72 72.29
+
+where ϵρ prevents ρr = 1 . If V(e) 
+
+> r
+
+is empty, the previous parameter is retained. Statistics are detached from backprop-agation, and parameters remain fixed within each epoch. Following t-vMF Dice Loss[5], we minimize the squared deviation from one, the transformed similarity at perfect agreement: 
+
+LSTB = 1
+
+BC 
+
+> B
+
+X
+
+> n=1
+> C
+
+X
+
+> k=1
+
+X
+
+> r∈{ b,i }
+
+h
+
+1 − ϕ
+
+
+
+xn,k,r ; ρ(e)
+
+> r
+
+i 2
+
+, (9) where B and C are the batch size and number of classes. Empty regional targets give xn,k,r = 0 and thus a prediction-independent loss of (1 + ρ(e) 
+
+> r
+
+)2; they are excluded only from the regional mean. The denominator in Eq. (3) is lower-bounded by 10 −7 for numerical stability. 
+
+3. EXPERIMENTS 3.1. Datasets and Metrics 
+
+We evaluate the proposed method on three medical im-age segmentation datasets: Kvasir-SEG for polyp segmen-tation in endoscopic images[6], ACDC for cardiac MRI segmentation[7], and Synapse for abdominal multi-organ CT segmentation[8]. The datasets contain 2, 4, and 9 classes, including background, respectively. We conduct cross-validation using identical fold assign-ments across the compared losses. Segmentation perfor-mance is measured by the Dice similarity coefficient (DSC). We report the mean DSC across all classes, including back-ground, averaged over all folds. Evaluation is performed on 2D images or slices. 
+
+Fig. 2 . Qualitative results on three datasets using U-Net. From left to right, show Input image, Ground truth, Cross-entropy Loss, Adaptive t-vMF Dice Loss[5], and STB-tvMF Dice Loss (Ours). For Adaptive t-vMF Dice Loss, we show predictions using the λ with the highest DSC for each dataset. 
+
+3.2. Training Conditions 
+
+We evaluate all losses using U-Net[9], TransUNet[10], and EMCAD[11]. TransUNet uses the R50-ViT-B/16 configura-tion, while EMCAD uses a PVTv2-B2 encoder. We follow the training protocol of [5], with architecture-specific batch sizes due to computational cost. All models are trained for 4,000 iterations using SGD with a momentum of 0.9 and weight decay of 2 × 10 −4. The initial learning rate is 0.01 and follows a polynomial decay: ηt = 0 .01(1 −
+
+t/ 4000) 0.9, where t is the training iteration. The batch size is 24 for U-Net and 12 for TransUNet and EMCAD. Training images are resized to 224 ×224 , augmented with random hor-izontal flipping and random rotation within [−90 ◦, 90 ◦], and Table 2 . Effect of adaptation granularity with epoch-wise up-dates. DSC (%) using U-Net is shown. Global and class-wise variants use whole-image losses, whereas our method sepa-rates boundary and interior regions. Granularity Kvasir ACDC Synapse Global ( 1) 91.21 91.54 52.41 Class-wise ( C) 91.54 91.80 47.38 Boundary-interior ( 2) 91.91 91.92 70.75 Table 3 . Effect of the shape-parameter update strategy in the boundary-interior formulation. DSC (%) using U-Net is shown. The coefficient m denotes EMA momentum. Update strategy Kvasir ACDC Synapse Batch-wise 91.47 92.29 70.67 EMA ( m = 0 .9) 91.87 91.53 69.91 EMA ( m = 0 .99 ) 91.63 92.06 70.66 Epoch-wise (Ours) 91.91 91.92 70.75 
+
+normalized. At inference, images are resized to 224 × 224 
+
+and normalized. Experiments are implemented in PyTorch and conducted on an NVIDIA RTX A6000 GPU. We compare STB-tvMF Dice with Cross-entropy, Dice, Tversky, Focal Tversky, additive (CE + Dice) and multi-plicative (CE × Dice) combinations of cross-entropy and Dice losses, TopK Dice, ABeDice, and Adaptive t-vMF Dice Loss[1, 2, 3, 13, 14, 5]. Baseline loss hyperparameters fol-low their original papers, and Adaptive t-vMF Dice Loss is evaluated with λ ∈ { 2, 32 , 128 , 256 , 1024 }. For STB-tvMF Dice, the boundary neighborhood is fixed at 3 × 3, and both shape parameters are initialized to zero and updated after each training epoch. No validation data are used to adapt the proposed loss. 
+
+3.3. Quantitative comparison 
+
+Table 1 summarizes segmentation performance across three datasets and three architectures. STB-tvMF Dice achieved the highest mean DSC in six of the nine settings and remained close to the best-performing baseline in the remaining three. On Synapse, it improved DSC over Dice loss by 5.73 and 3.56% with U-Net and TransUNet, respectively. Compared with the best tested λ of Adaptive t-vMF Dice Loss, the corresponding gains are 7.72 and 2.56%. With EMCAD, it achieved the highest DSC on Kvasir-SEG and ACDC. These results demonstrate competitive performance across archi-tectures using training statistics alone for shape adaptation, without validation-based shape updates or manual search for adaptation parameters. 
+
+3.4. Qualitative comparison 
+
+Fig. 2 presents selected segmentation examples. In the Kvasir-SEG example, STB-tvMF Dice recovered the right-
+
+Table 4 . Effect of the boundary extraction kernel size. Values are DSC (%) using U-Net. Kernel size Kvasir ACDC Synapse                 
+
+> 3×3(default) 91.91 91.92 70.75
+> 5×592.09 91.47 70.29
+> 7×791.81 91.45 68.69
+
+ward extension of the polyp that is largely missed by the two baselines. In the ACDC example, its predicted contours more closely followed the ground truth. In the Synapse example, it recovered structures that are missing or fragmented in the baseline predictions, although segmentation errors remained. 
+
+3.5. Ablation studies 
+
+Table 2 uses the same self-tuning rule and epoch-wise up-dates, but changes how ρ is assigned: one shared across all classes and pixels, one per class, or one each for boundary and interior regions. The boundary-interior formulation achieved the highest DSC on all three datasets. On Synapse, it out-performed the global and class-wise variants by 18.34 and 23.37%, respectively. Pooling statistics across classes within each region may provide more reliable estimates than class-wise adaptation for infrequently occurring classes. Table 3 fixed the boundary-interior formulation and com-pared four parameter-update strategies using U-Net: batch-wise updates, EMA with momentum coefficients of 0.9 and 0.99, and epoch-wise averaging. The DSC values differed by at most 0.84% on each dataset. Epoch-wise averag-ing achieved the highest DSC on Kvasir-SEG and Synapse, whereas batch-wise updates performed best on ACDC. We adopted epoch-wise averaging because it maintained compet-itive accuracy across datasets without introducing an EMA momentum coefficient. Table 4 examines the boundary extraction kernel size us-ing U-Net. DSC varies by less than 0.5 % on Kvasir-SEG and ACDC, while increasing the kernel size from 3 × 3 to 7 × 7
+
+reduces DSC by 2.06 % on Synapse. These results support using a fixed 3 × 3 neighborhood across datasets. 
+
+4. CONCLUSION 
+
+We proposed STB-tvMF Dice, a loss function that separately adapts boundary and interior similarity functions using train-ing statistics alone. Maximizing the local sensitivity of the function yields a simple update rule that sets each shape parameter to the preceding epoch’s mean regional cosine similarity, eliminating manual search for adaptation param-eters. Experiments on three datasets and three architectures demonstrated competitive segmentation performance, while ablation studies supported the boundary-interior formulation and epoch-wise updates. Future work will investigate its ap-plicability to 3D segmentation and broader imaging settings. 5. REFERENCES 
+
+[1] F Milletari, N Navab, and S. A. Ahmadi, “V-net: Fully convolutional neural networks for volumetric medical image segmentation,” in International Conference on 3D Vision , 2016, pp. 565–571. [2] S. S. M. Salehi, D Erdogmus, and A Gholipour, “Tver-sky loss function for image segmentation using 3d fully convolutional deep networks,” in International Work-shop on Machine Learning in Medical Imaging , 2017, pp. 379–387. [3] N Abraham and N. M. Khan, “A novel focal tversky loss function with improved attention u-net for lesion segmentation,” in IEEE International Symposium on Biomedical Imaging , 2019, pp. 683–687. [4] Y Yokoi and K Hotta, “Multiplicative loss for enhancing semantic segmentation in medical and cellular images,” in IEEE/CVF International Conference on Computer Vi-sion Workshops , 2025, pp. 1284–1292. [5] S Kato and K Hotta, “Adaptive t-vmf dice loss: An effective expansion of dice loss for medical image seg-mentation,” Computers in Biology and Medicine , vol. 168, pp. 107695, 2024. [6] D Jha, P. H. Smedsrud, M. A. Riegler, P Halvorsen, T De Lange, D Johansen, and H. D. Johansen, “Kvasir-seg: A segmented polyp dataset,” in Multi Media Mod-eling , 2020, pp. 451–462. [7] O Bernard, A Lalande, C Zotti, F Cervenansky, X Yang, P. A. Heng, I Cetin, K Lekadir, O Camara, M. A. Gonza-lez Ballester, G Sanroma, S Napel, S Petersen, G Tziri-tas, E Grinias, M Khened, V. A. Kollerathu, G Krishna-murthi, M. M. Roh´ e, X Pennec, M Sermesant, F Isensee, P J¨ ager, K. H. Maier-Hein, P. M. Full, I Wolf, S Engel-hardt, C. F. Baumgartner, L. M. Koch, J. M. Wolterink, I Iˇ sgum, Y Jang, Y Hong, J Patravali, S Jain, O Hum-bert, and P. M. Jodoin, “Deep learning techniques for automatic mri cardiac multi-structures segmentation and diagnosis: Is the problem solved?,” IEEE Transactions on Medical Imaging , vol. 37, no. 11, pp. 2514–2525, 2018. [8] “Multi-atlas labeling beyond the cranial vault -workshop and challenge,” https://doi.org/10. 7303/syn3193805 , 2015. [9] O Ronneberger, P Fischer, and T Brox, “U-net: Convo-lutional networks for biomedical image segmentation,” in Medical Image Computing and Computer-Assisted Intervention , 2015, vol. 35, pp. 234–241. [10] J Chen, Y Lu, Q Yu, X Luo, E Adeli, Y Wang, L Lu, A. L. Yuille, and Y Zhou, “Transunet: Transformers make strong encoders for medical image segmentation,” 
+
+arXiv preprint arXiv:2102.04306 , 2021. [11] M. M. Rahman, M Munir, and R Marculescu, “Em-cad: Efficient multi-scale convolutional attention decod-ing for medical image segmentation,” in IEEE/CVF Conference on Computer Vision and Pattern Recogni-tion , 2024, pp. 11769–11779. [12] T Kobayashi, “t-vmf similarity for regularizing intra-class feature distribution,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2021, pp. 6612–6621. [13] S. M. Hosseini, “Topk dice loss for medical image segmentation,” in British Machine Vision Conference ,2024. [14] Y Zheng, B Tian, S Yu, X Yang, Q Yu, J Zhou, G Jiang, Q Zheng, J Pu, and L Wang, “Adaptive boundary-enhanced dice loss for image segmentation,” Biomedi-cal Signal Processing and Control , vol. 106, pp. 107741, 2025.

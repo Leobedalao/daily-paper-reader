@@ -1,0 +1,2651 @@
+A General-Purpose Dual-Path Interaction Framework for
+Multi-View Medical Image Segmentation: Alleviating Data Volume
+Dependency in Small-Sample Regimes
+Shuhuan Wanga,1, Yuanyuan Cuib,1, Pengju Wanga, Huimin Guoa, Ling Yueb, Yin Gua,
+Yanchao Zhangb, Wei Fengb, Yunhe Liub, Wei Qianb, Mingjun Xud,∗, Shuang Liub,∗, He
+Maa,c,∗
+a College of Medicine and Biological Information Engineering, Northeastern University,
+Shenyang, Liaoning, 110169, China
+b Department of Ultrasound, The Fourth Affiliated Hospital of China Medical University,
+Shenyang, Liaoning, 110000, China
+c The Key Laboratory of Intelligent Computing in Medical Image, Ministry of Education,
+Northeastern University, Shenyang, Liaoning, 110819, China
+d Department of Cardiology, Qilu Hospital of Shandong University
+1 These authors contributed equally
+October 23, 2026
+Abstract
+The performance of medical image segmentation depends on a large amount of annotated
+data, and most segmentation models experience a significant drop in performance in low-sample-
+size scenarios. Existing semi-supervised and weakly supervised methods rely on specific network
+architectures, while traditional multi-view-assisted segmentation methods require strictly paired
+samples, which limits their clinical applications. To address these issues, we propose DPIF,
+a general-purpose plug-and-play dual-path interaction framework compatible with arbitrary
+encoder-decoder segmentation networks, which leverages cross-view anatomical complementar-
+ity to reduce annotation reliance. DPIF first performs Sinkhorn optimal transport-based cross-
+view distribution alignment to establish global semantic correspondence without sample-level
+pairing. It then adopts conditional mutual information-guided feature decoupling to enable bidi-
+rectional knowledge transfer only within the shared semantic space, suppressing view-specific
+noise. Finally, persistent homology-based topological regularization encodes anatomical invari-
+ants as unsupervised priors to mitigate overfitting. Experiments were conducted using 24 base-
+line models on a private multicenter echocardiography dataset and two public datasets. The
+results show that DPIF-enhanced models outperform single-view baseline models when trained
+on comparable amounts of data. Notably, most dual-path variants trained on 40% - 60% of the
+data achieve performance comparable to that of single-view models trained on the full dataset.
+This demonstrates that DPIF provides a general-purpose and scalable solution for data-scarce
+multi-view medical image segmentation problems.
+Keywords: Medical Image Segmentation, Multi-view Analysis, Few-shot Learning, Dual-path
+Interaction
+1
+arXiv:2610.31065v1  [cs.CV]  22 Oct 2026
+
+
+1
+Introduction
+Accurate medical image segmentation is the foundation for clinical quantitative analysis, disease
+diagnosis, and surgical planning. Although deep learning has advanced this field, its performance
+still depends on large-scale datasets with pixel-level annotationsGan et al. [2025]. Unlike natural
+images, annotating medical images requires specialized clinical knowledge, making the process both
+time-consuming and costly. For multi-view imaging protocols, each view must be annotated sepa-
+rately, leading to a significant increase in workload and costs. Therefore, the scarcity of annotated
+data remains a major bottleneck for clinical translation, particularly for rare diseasesDissanayake
+et al. [2025].
+In standard clinical practice, images of the same anatomical structure are typically acquired
+from multiple angles to enable a comprehensive assessment of lesionsBerahmand et al. [2025]. For
+example, a standard echocardiogram simultaneously acquires both the long-axis and short-axis
+views of the left ventricle. Although these views contain highly complementary anatomical infor-
+mation, they differ significantly in terms of geometric structure and imaging characteristicsDu et al.
+[2026]. Current mainstream segmentation methods still process each view independently, failing
+to fully leverage the inherent structural and semantic relationships between views. Most exist-
+ing multi-view fusion methods employ simple strategiesLiu et al. [2024b], Majern´ık et al. [2026].
+These methods overlook the substantial spatial structural differences and variations in semantic
+distribution across views, often introducing redundant noise and yielding only limited performance
+improvements. More critically, most multi-view frameworks are tightly coupled with specific back-
+bone architectures, which hinders their rapid adaptation to new tasks and poses challenges for
+cross-scenario deploymentZhou et al. [2026].
+To address these fundamental limitations, we propose a general-purpose dual-path interaction
+framework. Its core idea is to leverage the complementarity of cross-view anatomical structures
+as an alternative to expanding the annotated dataset. The framework features a universal, plug-
+and-play design that is compatible with various segmentation backbone models and achieves high-
+precision segmentation with only a small number of annotated samples. The main contributions of
+this study are summarized as follows:
+We propose a general-purpose dual-path interaction framework designed to reduce reliance on
+segmented annotated data. This framework can be integrated into any encoder-decoder Segmen-
+tation network. We propose a cross-view alignment mechanism based on optimal transport theory.
+It establishes semantic correspondences by minimizing the Wasserstein distance, thereby enabling
+distribution-level alignment of unpaired data.
+We propose a two-layer decoupling strategy for
+cross-view knowledge transfer. Under conditional mutual information constraints, features are de-
+composed into shared and view-specific components, and knowledge transfer and enhancement are
+performed only in the shared space to suppress noise propagation. We propose a regularization
+method based on cross-view topological consistency. This method uses anatomical topological in-
+variants as shared prior information to impose constraints, thereby narrowing the hypothesis space
+and mitigating the problem of overfitting in small-sample settings.
+2
+Related WORK
+2.1
+Multi-view Medical Image Segmentation
+Existing multi-view medical image segmentation methods can be broadly categorized into three
+paradigms: input-level, feature-level, and decision-level fusion.
+Input-level fusion stacks multi-
+view images as multi-channel inputs but ignores spatial differences between views. Feature-level
+2
+
+
+fusion directly concatenates or superimposes intermediate features within the network, but carries
+the risk of introducing view-specific noise and artifactsWang and Voiculescu [2022]. Decision-level
+fusion, while capable of merging independent prediction outputs, discards complementary semantic
+information present in the hidden layersLi et al. [2025]. Although improvements based on attention
+mechanisms have shown some promise, most fusion schemes remain constrained by their network
+architectures, making it difficult to transfer them across different segmentation pipelinesZhan et al.
+[2023]. Furthermore, most of these schemes are designed for fully annotated datasets and perform
+poorly when data is limited. Crucially, nearly all existing methods require strictly paired multi-view
+patient data, which imposes severe constraints on real-world clinical inputs.
+2.2
+Small-Sample Medical Image Segmentation
+To address the issue of scarce annotations, existing research primarily follows three approaches:
+semi-supervised learning, weakly supervised learning, and few-shot learning. Semi-supervised meth-
+ods utilize large amounts of unlabeled data to aid training, but still rely on a certain scale of
+unlabeled data, thus imposing requirements on the data volumeCao et al. [2025]. Weakly super-
+vised methods employ weak labels, such as point annotations and bounding box annotations, to
+reduce annotation costs. However, due to the limitations imposed by the simplicity of these la-
+bels, there is an upper bound on accuracy.Chen et al. [2025a] Few-shot learning methods aim to
+achieve generalization with small datasets through cross-domain knowledge transfer. However, due
+to significant variations across medical imaging domains, their practical effectiveness remains uncer-
+tainDissanayake et al. [2025]. It is worth noting that existing methods rarely exploit the inherent
+correlations among multi-view images of the same object, nor have they established a universal
+interaction scheme that can be reused across models. Meanwhile, the cost of acquiring multi-view
+images in clinical settings is far lower than the cost of annotating data required for a single view,
+and this potential has yet to be fully utilized.
+3
+Method
+3.1
+Overview
+As shown in Fig 1, our proposed Dual-Path Interaction Framework (DPIF) adopts a symmetric
+dual-branch architecture, in which the backbone networks share the same structure but are initial-
+ized independently. Each branch receives a single-view image for segmenting the target anatomical
+structure.
+The training process is divided into three stages.
+In the feature encoding stage, a
+dual-branch encoder extracts multiscale features.
+Subsequently, the ODI module is invoked at
+designated encoder-decoder layers to perform feature decoupling, unpaired distribution alignment,
+and adaptive bidirectional feature enhancement, after which the enhanced features are fed back to
+the decoder. Meanwhile, a topological regularization loss serves as an anatomical prior to ensure
+topological consistency across different views. In the final decoding and joint training stage, each
+decoder upsamples and aggregates the features to generate segmentation outputs and soft proba-
+bility maps. The entire framework is optimized via a composite loss function. During the inference
+stage, the interaction module is disabled, and the two branches operate independently.
+3.2
+Optimal Transmission Decoupling Interaction Module
+The ODI module is the core functional unit of DPIF, enabling cross-view feature interaction. The
+specific workflow of this module consists of three consecutive steps: two-layer feature decoupling,
+3
+
+
+Figure 1: DPIF Framework and Functional Modules. (A) Schematic diagram of the dual-branch
+interaction framework deployment. (B) Core interaction module, used to connect the two segmenta-
+tion pipelines. (C) Two-layer feature decoupling method, which distinguishes between shared and
+proprietary features. (D) Feature distribution alignment algorithm, which enables bidirectional
+semantic interaction and enhancement. (E) Segmentation uncertainty-guided weight interaction
+method, which enables adaptive adjustment of interaction intensity.
+4
+
+
+unpaired distribution alignment, and adaptive bidirectional feature enhancement.
+3.2.1
+Two-Layer Feature Decoupling
+Multi-view medical images contain both shared anatomical semantics and view-specific noise, in-
+tensity shifts, and artifacts. Directly propagating raw features across branches reduces the quality
+of feature interaction, especially when data is limited. To address this issue, our proposed two-layer
+feature decoupling method decomposes the input features of each view into two mutually exclusive
+components: a shared semantic component for cross-view information exchange, and a view-specific
+component that is excluded from inter-branch interaction. Each branch employs two parallel 1 × 1
+convolutional encoders. One encoder, with shared weights, extracts shared semantic features F c
+to construct a unified semantic space, while the view-independent encoder generates view-specific
+features F p:
+F c = Encc(F),
+F p = Encp(F)
+(1)
+To guarantee effective decoupling, we introduce a conditional mutual information constraint as
+a regularization term:
+Ldecouple = I(F c; F p|G) −λ1I(F c; G) −λ2I(F p; G)
+(2)
+where I(·; ·) denotes mutual information and G is the segmentation label. This loss maximizes
+the dependence between shared components and segmentation labels, and minimizes conditional
+mutual-information between F c and F p given labels, guaranteeing their statistical independence
+and preventing noise from polluting the shared semantic space.
+3.2.2
+Sinkhorn-Based Unpaired Distribution Alignment
+Given the scarcity of multi-view data for sample-level pairing, which limits the scope of application,
+we reformulate cross-view semantic matching as an sinkhorn-Based optimal transport problem to
+achieve global alignment at the distribution levelWatanabe and Isobe [2024]. First, the shared
+semantic features from both branches are flattened into sets of feature points. For the long-axis
+branch, the feature set is X = {xi}Nl
+i=1 with xi ∈RCc, corresponding to the discrete distribution
+µ =
+1
+Nl
+PNl
+i=1 δxi.
+For the short-axis branch, the feature set is Y = {yj}Ns
+j=1 with yj ∈RCc,
+corresponding to the discrete distribution ν =
+1
+Ns
+PNs
+j=1 δyj. Here, Nl = Bl · Hl · Wl and Ns =
+Bs · Hs · Ws denote the total number of feature points in the two branches, respectively.
+The
+two values can differ, making the formulation compatible with unpaired settings. We define the
+cost matrix C ∈RNl×Ns, where each element Cij = ∥xi −yj∥2
+2 represents the squared Euclidean
+distance between two feature points, i.e., the transport cost. The optimal transport problem aims
+to find a transport plan P ∈Π(µ, ν) that satisfies the marginal distribution constraints while
+minimizing the total transport cost: minP∈Π(µ,ν)⟨P, C⟩F . To improve computational efficiency and
+ensure differentiability, we introduce an entropy regularization term, converting the problem into
+a Sinkhorn distance optimization:
+dSinkhorn(µ, ν) =
+min
+P∈Π(µ,ν)⟨P, C⟩F −εH(P)
+(3)
+where H(P) = −P
+i,j Pij log Pij is the entropy of the transport plan and ε is the regularization
+coefficient. This problem can be efficiently solved via the Sinkhorn–Knopp iterative algorithm to
+yield the optimal transport plan P ∗. Based on the optimal transport plan, we achieve bidirectional
+5
+
+
+feature mapping and enhancement. Short-axis features are mapped to the long-axis feature space to
+generate complementary features for the long-axis view: F c
+l←s = P ∗· F c
+s . Similarly, complementary
+features for the short-axis view are obtained as F c
+s←l = (P ∗)T ·F c
+l . This process establishes semantic
+correspondence between the two views at the global distribution level, enabling knowledge transfer
+without requiring sample-level pairing.
+3.2.3
+Adaptive Interaction Weights Based on Segmentation Uncertainty
+In clinical practice, there are inherent differences in imaging quality and segmentation difficulty
+across different views. Fixed, symmetric interaction cannot adapt to such differences, often resulting
+in underutilization of high-quality information while allowing low-quality information to cause
+excessive interference. To address this issue, we designed an energy function based on segmentation
+uncertainty to dynamically adjust the intensity of bidirectional interaction, thereby enabling the
+directed transmission of high-confidence features to the low-confidence branch.
+First, we calculate the segmentation uncertainty for each view based on its predicted map:
+E = −1
+N
+N
+X
+i=1
+(pi log pi + (1 −pi) log(1 −pi))
+(4)
+Here, pi is the predicted probability that pixel i belongs to the target region, and E ∈[0, 1]. A
+higher value indicates greater segmentation uncertainty and lower confidence.
+Based on the difference in uncertainty between the two branches, adaptive interaction weights
+are generated using the sigmoid function:
+αl = α0 · σ
+El −Es
+τ
+
+,
+αs = α0 · σ
+Es −El
+τ
+
+(5)
+where α0 is the base interaction strength, and τ is the temperature coefficient that controls
+the smoothness of weight adjustments.
+When the confidence in the long-axis segmentation is
+significantly lower than that of the short-axis segmentation, αl increases, causing the long-axis
+branch to receive more guidance from the short-axis branch, the opposite is also true.
+3.3
+Cross-View Topological Consistency Regularization Loss
+In small-sample scenarios, limited training coverage may induce spurious pixel-level correlations and
+produce unreasonable segmentation results, while pixel-based loss functions struggle to mitigate
+this phenomenon. We consider that anatomical structures possess inherent topological invariance,
+and that key topological statistics across multi-view projections exhibit high consistency, which
+can serve as unsupervised priors to narrow the model’s hypothesis space and alleviate overfitting.
+Therefore, drawing inspiration from persistent homology-based topological data analysis methods,
+we propose a cross-view topological consistency regularization lossKapulkin and Kershaw [2026].
+Starting from the segmentation probability map of each view, we obtain a persistent diagram
+(PD) through sub-level set filtering, where the points encode topological features characterized
+by thresholds and corresponding persistent values. Higher persistence values indicate more stable
+and anatomically plausible structures. Since the exact persistence homology calculation is non-
+differentiable, we employ a differentiable approximation method: applying multiscale Gaussian
+smoothing to the probability graph to obtain an approximate persistence graph. The second-order
+Wasserstein distance between the persistence graphs of the two views forms our topological loss
+function:
+6
+
+
+Ltopo = W2(PD(Pl), PD(Ps))
+(6)
+where PD(·) denotes the persistent diagram from which the segmentation results are extracted,
+and W2(·) is the second-order Wasserstein distance. This loss ensures that the segmentation results
+from the two viewpoints remain consistent in their topological statistical distributions, guiding the
+model to learn segmentation patterns that conform to anatomical priors.
+3.4
+Joint Loss Function
+The total loss of DPIF integrates four terms to balance segmentation performance, feature-decoupling
+quality, topological consistency and cross-view knowledge complementarity for end-to-end joint op-
+timization:
+Ltotal = Lseg + λdLdecouple + λtLtopo + λkLkd
+(7)
+where λd, λt, λk denote loss-weight hyper-parameters. The primary segmentation loss Lseg com-
+bines Dice loss and binary cross-entropy (BCE) to handle medical class imbalance, computed
+and averaged independently for each view.The decoupling loss enforces mutual-information con-
+straints: it minimizes conditional mutual information between shared/view-specific features given
+labels, maximizes relevance between shared features and annotations, and suppresses task-irrelevant
+view-specific signals:
+Ldecouple = I(F c; F p | G) −λ1I(F c; G) −λ2I(F p; G)
+(8)
+Here I(·; ·) and I(·; · | ·) represent mutual and conditional mutual information. F c, F p are shared
+and view-specific features, G is the segmentation label, and λ1, λ2 are weighting coefficients. The
+topological consistency loss regularizes cross-view topological statistics via persistent-homology
+priors to shrink the model hypothesis space:
+Ltopo = W2
+ PD(Pl), PD(Ps)
+
+(9)
+PD(·) extracts persistence diagrams from predicted probability maps. W2(·, ·) is the second-order
+Wasserstein distance measuring topological-distribution discrepancy. For discrete persistence point-sets
+X = {xi}m
+i=1, Y = {yj}n
+j=1:
+W2(X, Y ) =
+
+min γ ∈Π(X, Y )
+m
+X
+i=1
+n
+X
+j=1
+γij|xi −yj|2
+2
+
+
+1
+2
+(10)
+where Π(X, Y ) denotes feasible coupling matrices and γij stands for coupling weight entries.Bidirectional
+KL-divergence knowledge distillation is applied to segmentation probability maps to mine implicit
+complementary information and align cross-view semantics:
+Lkd = T 2
+2
+
+KL (softmax(Pl/T) ∥softmax(Ps/T))
++ KL (softmax(Ps/T) ∥softmax(Pl/T))
+
+(11)
+where temperature T smooths soft-label outputs while retaining fine structural details.
+7
+
+
+4
+Experiment
+4.1
+Datasets
+We conducted our evaluation using three multi-view medical imaging datasets, including a private
+multicenter echocardiography dataset (referred to as PME), the publicly available FLARE2023
+liver CT dataset, and the MSD hippocampal MRI dataset. The specific datasets used are shown
+in Fig 2.
+PME Dataset: This dataset compiles data from 429 patients across five clinical centers, pro-
+viding images of the apical four-chamber long-axis view and the papillary muscle-level short-axis
+view, along with annotations of the left ventricular myocardium. One image at the end of systole
+and one at the end of diastole are selected for each cardiac cycle, resulting in 858 images per view.
+FLARE2023 DatasetMa et al. [2024]: 2D slices with liver annotations from two views were
+extracted from the 3D abdominal CT volumes. After filtering based on liver size and the presence
+of tumors, 581 images were retained for each view for 581 patients.
+MSD DatasetSimpson et al. [2019]: We extracted 2D sections with dual views labeled for the
+anterior hippocampus. After image quality screening, 172 images were retained for each view for
+172 patients.
+To distinguish between the two views, the results are uniformly labeled as the “long-axis view”
+and the “short-axis view.” All datasets were split at the patient level to prevent data leaks. First,
+20% of the data was selected as an independent test set (not used for training), and the remaining
+data was subjected to five-fold cross-validation. All datasets underwent a standardized preprocess-
+ing workflow. For each dataset, images were cropped to a size of 512×512 pixels. During training,
+data augmentation was applied only to the training set to improve the model’s generalization ability.
+Neither the validation set nor the test set underwent data augmentation to ensure the objectivity
+and consistency of the evaluation.
+4.2
+Evaluation Metrics
+We adopted four commonly used evaluation metrics in medical image segmentation: The Dice
+similarity coefficient(DSC), which measures the degree of overlap between the segmentation results
+and the gold standard. The Jaccard index (IoU), which is the ratio of the intersection to the union.
+The 95% Hausdorff distance (HD95), which measures the degree of alignment of the segmentation
+boundaries. The average surface distance (ASD), which is the average distance between points
+on the segmentation boundaries. Using 5-fold cross-validation, we identified five optimal models,
+tested them on the independent test set, and reported the average values of the aforementioned
+metrics.
+4.3
+Experimental Setup
+We implemented all networks using the PyTorch 1.12 framework. The Adam optimizer was used
+with an initial learning rate of 2e-4, which was reduced to a minimum learning rate of 1e-5 using
+a cosine annealing strategy. The batch size was set to 2, with a total of 100 training epochs. The
+backbone network was frozen for the first 30 epochs. The similarity threshold was set to τ = 0.2,
+the distillation temperature to T = 2.0, and the loss weights to α = 0.1, βs = 0.05, βl = 0.05.
+Except for specific parameters, the settings for the comparative experiments were identical to those
+of our method. All experiments were conducted on two NVIDIA RTX 4090 GPUs.
+8
+
+
+Figure 2: Details on the use of the three datasets. For each dataset, 20% is randomly allocated as
+an independent test set, and the remaining data is used for training and validation using five-fold
+cross-validation.
+Table 1: Results of the single-path and dual-path models on the PME dataset from the long-axis
+perspective. Here, PI represents the percentage improvement in the DSC metric achieved by the
+DP method relative to the SP method. The best result is shown in red , the second-best in purple ,
+and the third-best in blue .
+Long Axis
+Short Axis
+SP
+DP
+SP
+DP
+Method
+DSC
+HD95
+ASD
+IOU
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+DSC
+HD95
+ASD
+IOU
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+KiUNetValanarasu et al. [2020]
+0.5232
+22.1285
+8.4941
+0.3636
+0.5866
+20.6775
+5.5894
+0.4149
+12.12
+0.4827
+22.8059
+9.0319
+0.3182
+0.6394
+16.7441
+5.1721
+0.4706
+32.46
+RollingUNetLiu et al. [2024d]
+0.5959
+20.8334
+7.5748
+0.4339
+0.7841
+12.5132
+3.8435
+0.6449
+31.58
+0.3449
+31.2219
+11.9033
+0.2084
+0.3866
+26.6497
+10.0282
+0.2398
+12.09
+UTNetGao et al. [2021]
+0.6303
+18.0414
+6.0789
+0.4767
+0.7218
+16.0721
+4.9658
+0.5647
+14.52
+0.6085
+20.2116
+5.2387
+0.4375
+0.6467
+17.7436
+5.547
+0.4774
+6.28
+DSCNetQi et al. [2023]
+0.6667
+17.5818
+6.0677
+0.5119
+0.7095
+16.1644
+4.8706
+0.5498
+6.42
+0.4348
+24.793
+9.7012
+0.2778
+0.5694
+21.5876
+7.4392
+0.3982
+30.96
+CGNetWu et al. [2020]
+0.6746
+17.2862
+5.7327
+0.5244
+0.7411
+14.7987
+4.2023
+0.5887
+9.86
+0.7115
+16.278
+4.3075
+0.5526
+0.7557
+14.6831
+4.2626
+0.6064
+6.21
+PSPNetZhao et al. [2017]
+0.6943
+16.2117
+4.4803
+0.5425
+0.7674
+14.1164
+3.9533
+0.6226
+10.53
+0.6265
+19.3502
+5.1265
+0.4560
+0.7244
+16.0846
+4.1613
+0.5687
+15.63
+SegNetBadrinarayanan et al. [2017]
+0.7008
+16.1720
+4.4165
+0.5566
+0.7542
+14.7153
+4.2537
+0.6054
+7.62
+0.6513
+17.4458
+5.8651
+0.4826
+0.6647
+16.6071
+5.0469
+0.4973
+2.06
+SUNetLi et al. [2023]
+0.7009
+16.9809
+4.4306
+0.5531
+0.7852
+13.2798
+3.9445
+0.6464
+12.03
+0.6145
+20.1446
+5.1867
+0.4436
+0.6494
+17.7968
+5.9124
+0.4804
+5.68
+TinyUNetChen et al. [2024]
+0.7013
+16.1626
+4.3507
+0.5545
+0.7423
+14.8933
+4.2606
+0.5902
+5.85
+0.4982
+23.1913
+9.5385
+0.3317
+0.6955
+16.1829
+4.8591
+0.5335
+39.60
+TransUNetChen et al. [2021]
+0.7065
+16.1293
+4.3538
+0.5605
+0.7119
+16.1154
+4.8751
+0.5527
+0.76
+0.4708
+24.1321
+9.5772
+0.3077
+0.6055
+20.5665
+7.3924
+0.4348
+28.61
+TCSegNetLal [2024]
+0.7075
+16.1478
+5.1605
+0.5474
+0.7088
+16.1949
+4.4496
+0.5653
+0.18
+0.5884
+20.9776
+7.6207
+0.4165
+0.7397
+14.7148
+4.2574
+0.5868
+25.71
+UNextValanarasu and Patel [2022]
+0.7086
+16.1927
+4.4988
+0.5633
+0.7505
+14.8914
+4.2439
+0.6006
+5.91
+0.5856
+20.6931
+5.6859
+0.4137
+0.6918
+16.3731
+4.4644
+0.5283
+18.14
+ICNetZhao et al. [2018]
+0.7101
+16.1261
+4.4558
+0.5619
+0.7895
+13.2946
+3.8133
+0.6522
+11.18
+0.6656
+16.6114
+5.0518
+0.4985
+0.7009
+16.1627
+4.5369
+0.5396
+5.30
+CFANetZhang and Yan [2023]
+0.7104
+16.2234
+4.3477
+0.5651
+0.8042
+12.7379
+3.3653
+0.6725
+13.20
+0.4974
+23.3267
+9.2401
+0.3302
+0.5914
+20.7906
+7.6695
+0.4195
+18.90
+LETNetXu et al. [2023]
+0.7124
+16.1467
+4.2671
+0.5705
+0.7703
+13.3076
+4.0313
+0.6264
+8.13
+0.6851
+16.2453
+4.9756
+0.5192
+0.7052
+16.2683
+4.5233
+0.5445
+2.93
+MAUNetChen et al. [2025b]
+0.7174
+16.1472
+4.3334
+0.5753
+0.7245
+15.6569
+4.1872
+0.5681
+0.99
+0.6267
+18.3737
+6.1602
+0.4562
+0.7424
+14.8253
+4.2448
+0.5903
+18.46
+SCSEUNetLiu et al. [2024c]
+0.7178
+16.2116
+4.8531
+0.5599
+0.7336
+14.3787
+4.0558
+0.5929
+2.20
+0.5818
+20.8129
+5.5795
+0.4106
+0.5843
+21.4814
+7.6181
+0.4127
+0.43
+DUCKNetDumitru and Peteleaza [2023]
+0.7197
+15.8825
+4.8644
+0.5621
+0.7391
+14.351
+4.0117
+0.5997
+2.70
+0.7267
+22.5628
+4.7218
+0.5708
+0.7507
+15.9823
+4.6254
+0.6013
+3.30
+DeepLabv3Chen et al. [2018]
+0.7301
+14.4663
+4.1456
+0.5874
+0.7625
+14.2943
+4.0832
+0.6162
+4.44
+0.6457
+16.7308
+5.1075
+0.4765
+0.7491
+13.5302
+4.0513
+0.5988
+16.01
+I2UNetDai et al. [2024]
+0.7323
+14.3905
+4.1328
+0.5924
+0.7829
+12.8860
+3.8676
+0.6433
+6.91
+0.7265
+16.2223
+4.7267
+0.5709
+0.7371
+14.3615
+3.9148
+0.5836
+1.46
+CPFNetFeng et al. [2020]
+0.7409
+14.3676
+3.9011
+0.6023
+0.8097
+12.6148
+3.3271
+0.6802
+9.29
+0.7596
+14.3028
+4.1601
+0.6128
+0.7759
+13.5073
+3.2019
+0.6344
+2.15
+UNetRonneberger et al. [2015]
+0.7417
+14.3168
+4.0564
+0.6038
+0.8125
+12.5713
+3.3209
+0.6842
+9.55
+0.7639
+13.3085
+3.7427
+0.6182
+0.7794
+13.2097
+3.4591
+0.6386
+2.03
+EANetWang et al. [2022]
+0.7439
+14.6818
+4.0547
+0.5922
+0.7517
+13.5500
+3.9219
+0.6019
+1.05
+0.6615
+17.6969
+6.1624
+0.4936
+0.7126
+16.2989
+4.2979
+0.5537
+7.72
+UMNetDu et al. [2025]
+0.8058
+12.6179
+3.2484
+0.6748
+0.8519
+11.1098
+3.1702
+0.7421
+5.72
+0.7984
+12.5134
+3.7446
+0.6646
+0.8495
+11.0153
+3.1246
+0.7384
+6.40
+9
+
+
+Figure 3: Visualization of the segmentation results and the bar chart showing the percentage
+increase in DSC. (A)–(C) show the validation results of the segmentation results against the mask,
+where red indicates the overlapping regions, purple indicates over-segmented regions, and green
+indicates under-segmented regions. (D)–(F) show the percentage improvements in the DSC metric
+achieved by the dual-path method.
+5
+Results
+5.1
+Comparison with Single-Path Segmentation Models
+To validate the DPIF’s generality and its advantages in few-shot scenarios, we selected 24 represen-
+tative encoder-decoder networks as single-path (SP) baseline models and constructed corresponding
+dual-path (DP) variants by integrating the DPIF framework. All models were trained and eval-
+uated on three multi-view datasets. The complete quantitative results are shown in TABLE 1 to
+TABLE 3 and Fig 3. Experimental results show that all dual-path variants achieved performance
+improvements on the three datasets. In terms of the DSC metric, the dual-path variants achieved
+an average improvement of 13.33% on the long-axis views and 8.97% on the short-axis views across
+the three datasets. Notably, the hippocampus long-axis dataset showed the largest average DSC
+improvement, reaching 19.2%. Among these, RollingUNet demonstrated the most significant im-
+provement, with a 57.57% increase in DSC on the hippocampus long-axis dataset. This confirms
+that DPIF can effectively leverage the complementary anatomical information inherent in both
+views without introducing directional performance bias. Regarding boundary accuracy metrics,
+the average HD95 decreased by 4.27 in the long-axis view and by 2.38 in the short-axis view across
+the three datasets. It is worth noting that a few models (such as SCSEUNet) showed a slight
+decrease in HD95. Nevertheless, the overall trend confirms that DPIF effectively enhances the
+boundary continuity and anatomical fidelity of segmentation results for most architectures, deliv-
+ering stable and consistent performance improvements across a variety of segmentation network
+architectures.
+10
+
+
+Table 2: Results of the single-path and dual-path models on the FLARE2023 dataset.
+Long Axis
+Short Axis
+SP
+DP
+SP
+DP
+Method
+DSC
+HD95
+ASD
+IOU
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+DSC
+HD95
+ASD
+IOU
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+TCSegNet
+0.6198
+18.3918
+5.8360
+0.4491
+0.9449
+4.5801
+2.0367
+0.8956
+52.45
+0.8589
+7.2738
+2.7845
+0.7527
+0.8920
+6.5329
+2.5299
+0.8056
+3.85
+DSCNet
+0.6424
+17.4416
+5.7550
+0.4732
+0.9486
+4.5296
+2.0461
+0.9022
+47.67
+0.5731
+20.5699
+5.7285
+0.4016
+0.8921
+6.4391
+2.3964
+0.8053
+55.66
+KiUNet
+0.7584
+14.5091
+4.1135
+0.6108
+0.8145
+12.3562
+3.6908
+0.6871
+7.40
+0.7152
+16.2628
+4.8605
+0.5567
+0.8470
+7.4423
+2.8995
+0.7345
+18.43
+CGNet
+0.7669
+14.3293
+4.1465
+0.6213
+0.9565
+3.6063
+1.7078
+0.917
+24.72
+0.9001
+6.3828
+2.3235
+0.8203
+0.9328
+5.5925
+1.9791
+0.8767
+3.63
+TransUNet
+0.7861
+12.7978
+3.8189
+0.6475
+0.9739
+2.4119
+1.6209
+0.9498
+23.89
+0.8476
+7.3489
+2.8246
+0.7353
+0.9319
+5.4060
+2.2814
+0.8727
+9.95
+CFANet
+0.8179
+12.3989
+3.6128
+0.6918
+0.8661
+7.2256
+2.6655
+0.7637
+5.89
+0.7964
+12.5354
+3.7402
+0.6620
+0.8625
+7.1838
+2.8289
+0.7582
+8.30
+SCSEUNet
+0.8516
+7.2741
+2.8618
+0.7416
+0.9765
+2.1880
+1.6218
+0.9547
+14.67
+0.8723
+7.1075
+2.4796
+0.7735
+0.9395
+4.7404
+2.2647
+0.8864
+7.70
+RollingUNet
+0.8545
+7.3239
+2.8240
+0.7460
+0.9140
+6.3252
+2.1794
+0.8417
+6.96
+0.8565
+7.2412
+2.7991
+0.7491
+0.9401
+4.4841
+1.9321
+0.8879
+9.76
+UNext
+0.8751
+7.1859
+2.4934
+0.7780
+0.9701
+2.4416
+1.6413
+0.9424
+10.86
+0.7834
+12.4592
+3.9104
+0.6439
+0.9294
+5.7157
+2.3337
+0.8679
+18.64
+PSPNet
+0.8815
+6.7152
+2.4384
+0.7881
+0.9598
+3.9024
+1.7795
+0.9223
+8.88
+0.9142
+5.8518
+2.1452
+0.8422
+0.9197
+6.0335
+2.3273
+0.8516
+0.60
+EANet
+0.8915
+6.5431
+2.6729
+0.8042
+0.9837
+2.1538
+1.5255
+0.9683
+10.34
+0.8848
+6.7879
+2.6847
+0.7935
+0.9485
+4.3918
+1.9111
+0.9021
+7.20
+UTNet
+0.8975
+6.6537
+2.5574
+0.8141
+0.9774
+2.4198
+1.5849
+0.9562
+8.90
+0.8597
+7.2433
+2.8360
+0.7539
+0.9327
+5.4161
+1.9518
+0.8740
+8.49
+I2UNet
+0.9013
+6.5120
+2.3801
+0.8203
+0.9742
+2.3025
+1.6284
+0.9493
+8.09
+0.9041
+6.4323
+2.3329
+0.8249
+0.9413
+4.5895
+2.1356
+0.8901
+4.11
+TinyUNet
+0.9047
+6.4935
+2.3857
+0.8260
+0.9581
+3.8255
+1.7483
+0.9201
+5.90
+0.9004
+6.4887
+2.4627
+0.8190
+0.9105
+6.0412
+2.2603
+0.8358
+1.12
+UNet
+0.9076
+6.5079
+2.3974
+0.8308
+0.9793
+2.1446
+1.5695
+0.9594
+7.90
+0.9235
+5.6229
+2.1299
+0.8601
+0.9417
+4.4993
+1.9436
+0.8901
+1.97
+SUNet
+0.9078
+6.5068
+2.3987
+0.8312
+0.9644
+3.2756
+1.8659
+0.9318
+6.23
+0.8788
+7.1364
+2.4687
+0.7838
+0.9198
+5.9112
+2.1908
+0.8518
+4.67
+MAUNet
+0.9097
+6.4789
+2.3726
+0.8344
+0.9772
+2.4285
+1.5712
+0.9558
+7.42
+0.9228
+5.6887
+2.1799
+0.8567
+0.9399
+4.5761
+2.0137
+0.8876
+1.85
+SegNet
+0.9106
+6.4370
+2.3451
+0.8361
+0.9716
+2.4916
+1.6149
+0.9445
+6.70
+0.9187
+5.8774
+2.1985
+0.8495
+0.9321
+5.3141
+2.1446
+0.8732
+1.46
+DUCKNet
+0.9114
+6.1049
+2.3078
+0.8372
+0.9794
+2.1459
+1.5851
+0.9602
+7.46
+0.9172
+5.8638
+2.1904
+0.8471
+0.9340
+5.5109
+2.1776
+0.8761
+1.83
+CPFNet
+0.9139
+6.2375
+2.3126
+0.8415
+0.9788
+2.3454
+1.6046
+0.9588
+7.10
+0.9177
+5.8527
+2.1849
+0.8479
+0.9379
+5.3627
+2.1594
+0.8835
+2.20
+DeepLabv3
+0.9158
+6.1744
+2.2782
+0.8447
+0.9771
+2.6096
+1.7213
+0.955
+6.69
+0.9387
+5.1275
+1.9552
+0.8845
+0.9468
+4.3287
+1.9462
+0.8997
+0.86
+LETNet
+0.9186
+6.1337
+2.1355
+0.8495
+0.9488
+4.4889
+1.9556
+0.9025
+3.29
+0.9285
+5.3223
+2.1837
+0.8665
+0.9341
+5.6013
+2.1619
+0.8786
+0.60
+ICNet
+0.9216
+5.8365
+2.1246
+0.8545
+0.9581
+3.8212
+1.7641
+0.9197
+3.96
+0.9254
+5.6478
+2.1225
+0.8616
+0.9293
+5.4848
+2.0835
+0.8698
+0.42
+UMNet
+0.9288
+5.5999
+2.0612
+0.8672
+0.9824
+2.1293
+1.5425
+0.9659
+5.77
+0.9404
+4.4648
+2.0467
+0.8875
+0.9503
+4.1747
+2.0689
+0.9060
+1.05
+Table 3: Results of the single-path and dual-path models on the MSD dataset.
+Long Axis
+Short Axis
+SP
+DP
+SP
+DP
+Method
+DSC
+HD95
+ASD
+IOU
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+DSC
+HD95
+ASD
+IOU
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+KiUNet
+0.5395
+22.0747
+7.0769
+0.3693
+0.7155
+15.9292
+4.9417
+0.5573
+32.62
+0.5304
+22.5674
+7.1577
+0.3611
+0.5916
+18.4389
+6.2965
+0.4191
+11.54
+LETNet
+0.5526
+20.3445
+6.6149
+0.3817
+0.7772
+12.9451
+3.9491
+0.6355
+40.64
+0.8073
+11.8559
+3.6003
+0.6768
+0.9341
+5.6013
+1.9176
+0.8764
+15.71
+RollingUNet
+0.5779
+19.0086
+6.6645
+0.4064
+0.9106
+6.2819
+2.1666
+0.8359
+57.57
+0.5806
+19.5479
+6.7108
+0.4089
+0.9146
+5.8424
+2.0725
+0.8426
+57.53
+SCSEUNet
+0.6243
+18.1700
+5.8097
+0.4538
+0.8898
+7.0346
+2.8565
+0.8019
+42.53
+0.8954
+6.4212
+2.4971
+0.8105
+0.8974
+6.5153
+2.4608
+0.8138
+0.22
+UTNet
+0.6470
+18.2934
+6.1232
+0.4779
+0.8668
+7.1968
+2.7462
+0.7658
+33.97
+0.7711
+12.8753
+4.0784
+0.6286
+0.8502
+7.3667
+2.8764
+0.7391
+10.26
+CFANet
+0.6501
+17.7222
+7.2335
+0.4818
+0.8815
+7.0559
+2.4861
+0.7887
+35.6
+0.8625
+6.8438
+2.5889
+0.7591
+0.8721
+6.6657
+2.6299
+0.7726
+1.11
+TransUNet
+0.6620
+17.5615
+5.8473
+0.4945
+0.8503
+7.2486
+2.7199
+0.7392
+28.44
+0.7639
+14.2961
+4.1338
+0.6178
+0.8587
+7.2445
+2.7498
+0.7527
+12.41
+UNext
+0.6727
+16.5286
+6.5304
+0.5063
+0.8622
+6.8691
+2.8336
+0.7582
+28.17
+0.7834
+12.4592
+3.9107
+0.6442
+0.8925
+6.5413
+2.4716
+0.8061
+13.93
+DeepLabv3
+0.6924
+16.5496
+5.3898
+0.5294
+0.9024
+6.4139
+2.2435
+0.8219
+30.33
+0.9011
+6.4812
+2.4076
+0.8208
+0.9114
+5.7941
+2.0826
+0.8379
+1.14
+CGNet
+0.7147
+16.2685
+4.9114
+0.5562
+0.9071
+6.4182
+2.2781
+0.8309
+26.92
+0.8614
+6.7453
+2.7558
+0.7571
+0.9328
+5.5925
+1.9791
+0.8747
+8.29
+PSPNet
+0.7453
+14.8329
+4.1227
+0.5938
+0.8091
+12.0723
+3.5719
+0.6795
+8.56
+0.8342
+7.4021
+2.7154
+0.7159
+0.9092
+6.4922
+2.3012
+0.8337
+8.99
+TinyUNet
+0.7498
+14.7967
+4.2405
+0.5995
+0.7912
+12.4828
+3.8143
+0.6542
+5.52
+0.8781
+6.6749
+2.6857
+0.7834
+0.9004
+6.4887
+2.4627
+0.8185
+2.54
+EANet
+0.7669
+14.2132
+4.1877
+0.6222
+0.9114
+6.2923
+2.1254
+0.8373
+18.84
+0.8388
+7.7428
+3.1776
+0.7224
+0.9141
+6.1077
+2.1490
+0.8416
+8.98
+DUCKNet
+0.7684
+14.2412
+4.1801
+0.6238
+0.9122
+6.3269
+2.1127
+0.8386
+18.71
+0.9115
+6.3722
+2.2152
+0.8367
+0.9123
+6.1891
+2.1926
+0.8388
+0.09
+CPFNet
+0.7801
+12.6025
+4.0218
+0.6399
+0.9106
+6.4693
+2.1234
+0.8359
+16.73
+0.9120
+6.1170
+2.1381
+0.8391
+0.9177
+5.8527
+2.0849
+0.8474
+0.62
+I2UNet
+0.7963
+12.7034
+3.5625
+0.6616
+0.8974
+6.5074
+2.6047
+0.8135
+12.70
+0.8939
+6.4095
+2.4645
+0.8082
+0.9094
+6.4713
+2.2896
+0.8345
+1.73
+SUNet
+0.8017
+12.0986
+3.6487
+0.6693
+0.874
+7.0476
+2.7537
+0.7759
+9.02
+0.9102
+6.2244
+2.2494
+0.8359
+0.9104
+6.4164
+2.2819
+0.8354
+0.02
+DSCNet
+0.8345
+11.2599
+3.1635
+0.7163
+0.848
+7.3059
+2.8134
+0.7361
+1.62
+0.8696
+6.6449
+2.6017
+0.7693
+0.8774
+6.9324
+2.5916
+0.7815
+0.90
+SegNet
+0.8394
+7.6623
+3.1598
+0.7236
+0.8903
+6.4261
+2.5607
+0.8026
+6.06
+0.8834
+6.5274
+2.6071
+0.7906
+0.8861
+7.0214
+2.7643
+0.7955
+0.31
+MAUNet
+0.8467
+7.3213
+2.7552
+0.7341
+0.8661
+7.1427
+2.7153
+0.7640
+2.29
+0.8991
+6.4084
+2.4267
+0.8167
+0.9228
+5.7887
+2.0799
+0.8576
+2.64
+TCSegNet
+0.8501
+7.2451
+2.6984
+0.7389
+0.8716
+7.0703
+2.5782
+0.7722
+2.53
+0.8545
+7.2355
+2.7102
+0.7459
+0.8589
+7.1738
+2.6478
+0.7534
+0.51
+UNet
+0.8926
+6.7326
+2.6387
+0.8063
+0.8957
+6.5928
+2.438
+0.8113
+0.35
+0.8901
+6.464
+2.5096
+0.8026
+0.8993
+6.2387
+2.4641
+0.8169
+1.03
+ICNet
+0.9025
+6.6902
+2.2249
+0.8226
+0.9054
+6.4716
+2.2952
+0.8268
+0.32
+0.9077
+6.5199
+2.4805
+0.8317
+0.9293
+5.6848
+2.0835
+0.8688
+2.38
+UMNet
+0.9077
+6.4167
+2.2079
+0.8313
+0.9124
+6.3704
+2.1709
+0.8395
+0.52
+0.9172
+6.0197
+2.1543
+0.8477
+0.9185
+5.9608
+2.1767
+0.8487
+0.14
+11
+
+
+5.2
+Comparison with Multi-View Segmentation Methods
+We selected five representative multi-view medical image segmentation methods for comparison. To
+ensure fairness in the experiments, all comparison methods used the same UMNet as the backbone
+network, were trained on exactly the same data split. The quantitative results are shown in TABLE
+4. Fig 4 visualizes the percentage improvement for all methods. It can be seen that the DPIF
+framework demonstrates a consistent performance advantage across all views on the three datasets.
+In particular, on the long-axis view of the liver dataset, DP-UMNet achieves a 5.77% improvement
+over the single-path baseline, significantly outperforming all comparison methods. In contrast, on
+all three test datasets, all other methods underperform DP-UMNet. Most of these methods even
+performed worse than the single-path UMNet baseline model, with only a few achieving a slight
+improvement on the liver dataset. Among them, MSMVNet and CoBioNet exhibited the most
+significant performance declines. Overall, compared to existing multi-view segmentation methods,
+the DPIF framework achieves stable and consistent performance improvements in multi-view tasks
+spanning different imaging modalities and anatomical structures.
+Table 4: Comparison with Other Multi-View Segmentation Methods.
+LV dataset
+Long Axis
+Short Axis
+Method
+DSC
+HD95
+ASD
+IOU
+PI(%)
+DSC
+HD95
+ASD
+IOU
+PI(%)
+SP-UMNet
+0.8058
+12.6179
+3.2484
+0.6748
+–
+0.7984
+12.5134
+3.7446
+0.6646
+–
+AMDANetSu et al. [2025]
+0.7241
+15.8557
+4.9166
+0.5680
+−10.14
+0.7289
+15.8725
+4.9742
+0.5734
+−8.70
+CoBioNetPeiris et al. [2023]
+0.6948
+16.2034
+4.1474
+0.5323
+−13.78
+0.5041
+20.4393
+6.8256
+0.3371
+−36.86
+DSMZhu et al. [2025]
+0.7351
+15.7973
+4.5805
+0.5812
+−8.77
+0.7075
+16.1543
+4.9275
+0.5474
+−11.39
+MSMVNetLiu et al. [2024a]
+0.6901
+16.5968
+5.3385
+0.5267
+−14.36
+0.4905
+20.7283
+7.1322
+0.3249
+−38.56
+PGRNetHuang et al. [2024]
+0.7284
+15.8456
+4.9452
+0.5728
+−9.61
+0.6754
+17.2599
+5.5299
+0.5097
+−15.41
+DP-UMNet
+0.8519
+11.1098
+3.1702
+0.7421
++5.72
+0.8495
+11.0153
+3.1246
+0.7384
++6.40
+FL dataset
+Long Axis
+Short Axis
+Method
+DSC
+HD95
+ASD
+IOU
+PI(%)
+DSC
+HD95
+ASD
+IOU
+PI(%)
+SP-UMNet
+0.9288
+5.5999
+2.0612
+0.8672
+–
+0.9404
+4.4648
+2.0467
+0.8875
+–
+AMDANet
+0.9519
+3.5387
+1.8056
+0.9098
++2.49
+0.9191
+6.3722
+2.1324
+0.8504
+−2.26
+CoBioNet
+0.9669
+3.1477
+1.7196
+0.9359
++4.10
+0.9225
+5.6113
+2.0414
+0.8569
+−1.90
+DSM
+0.9818
+2.3618
+1.4945
+0.9648
++5.71
+0.9378
+5.3893
+1.9318
+0.8826
+−0.28
+MSMVNet
+0.9222
+5.7246
+2.0569
+0.8562
+−0.71
+0.8921
+6.4842
+2.4385
+0.8053
+−5.14
+PGRNet
+0.9774
+2.4743
+1.5172
+0.9555
++5.23
+0.9438
+4.5985
+2.0680
+0.8935
++0.36
+DP-UMNet
+0.9824
+2.2193
+1.4525
+0.9659
++5.77
+0.9503
+3.7747
+1.6089
+0.9060
++1.05
+Hip dataset
+Long Axis
+Short Axis
+Method
+DSC
+HD95
+ASD
+IOU
+PI(%)
+DSC
+HD95
+ASD
+IOU
+PI(%)
+SP-UMNet
+0.9077
+6.4167
+2.2079
+0.8313
+–
+0.9172
+6.0197
+2.1543
+0.8477
+–
+AMDANet
+0.8863
+6.9053
+2.7587
+0.7962
+−2.36
+0.8733
+7.1605
+2.4956
+0.7748
+−4.79
+CoBioNet
+0.7336
+15.5838
+4.3405
+0.5795
+−19.18
+0.8617
+7.2136
+2.5765
+0.7573
+−6.05
+DSM
+0.9029
+6.5943
+2.4251
+0.8232
+−0.53
+0.9131
+6.2486
+2.1561
+0.8406
+−0.45
+MSMVNet-UMNet
+0.6300
+17.6188
+5.2609
+0.4615
+−30.59
+0.6819
+16.0451
+5.4792
+0.5188
+−25.65
+PGRNet
+0.9004
+6.6239
+2.4178
+0.82187
+−0.80
+0.9031
+7.0377
+2.3682
+0.8235
+−1.54
+DP-UMNet
+0.9124
+6.3704
+2.1709
+0.8395
++0.52
+0.9182
+1.9608
+2.1767
+0.8487
++0.11
+12
+
+
+Figure 4: Comparison of Performance Improvements Achieved by the Multi-View Approach Across
+Three Datasets.
+13
+
+
+Table 5: Ablation study of the main components in the DPIF framework. The first row indicates
+the use of only the single-path baseline model.
+Long Axis
+Short Axis
+Method
+A
+B
+C
+D
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+DSC
+HD95
+ASD
+IOU
+PI(+%)
+×
+×
+×
+×
+0.8058
+12.6179
+3.2484
+0.6748
+–
+0.7984
+12.5134
+3.7446
+0.6646
+–
+✓
+×
+×
+×
+0.8082
+12.4836
+3.2157
+0.6785
+0.30
+0.8011
+12.3952
+3.7024
+0.6689
+0.34
+×
+✓
+×
+×
+0.8245
+10.7124
+3.0842
+0.7018
+2.32
+0.8192
+10.5287
+3.4519
+0.6953
+2.61
+×
+×
+✓
+×
+0.8073
+12.5471
+3.2268
+0.6772
+0.19
+0.8003
+12.4506
+3.7185
+0.6676
+0.24
+×
+×
+×
+✓
+0.8152
+11.2587
+3.1395
+0.6883
+1.17
+0.8097
+11.1843
+3.5426
+0.6801
+1.42
+×
+✓
+✓
+✓
+0.8406
+8.2875
+2.8053
+0.7251
+4.32
+0.8372
+8.3104
+2.8479
+0.7206
+4.86
+✓
+×
+✓
+✓
+0.8337
+9.0982
+2.8704
+0.7151
+3.46
+0.8294
+9.1257
+2.9318
+0.7097
+3.88
+✓
+✓
+×
+✓
+0.8475
+7.6391
+2.7468
+0.7350
+5.18
+0.8448
+7.6823
+2.7695
+0.7312
+5.81
+✓
+✓
+✓
+×
+0.8452
+8.3957
+2.8164
+0.7317
+4.89
+0.8419
+8.4236
+2.8351
+0.7275
+5.45
+UMNet
+✓
+✓
+✓
+✓
+0.8519
+7.2098
+2.7102
+0.7415
+5.72
+0.8495
+7.2153
+2.7246
+0.7379
+6.40
+5.3
+Ablation Studies and Analyses
+To quantitatively verify individual contributions and synergies among DPIF components, we per-
+form progressive ablation experiments on the multicenter PME echocardiography dataset with
+UMNet as the backbone. Taking single-path UMNet as baseline, nine ablation variants are built to
+evaluate four modules: two-layer feature decoupling (A), Sinkhorn unpaired distribution alignment
+(B), adaptive interaction weights (C), and cross-view topological consistency regularization (D).
+Quantitative results are reported in TABLE 5. The results show that decoupling features across
+two layers yields only a slight improvement, as it achieves feature separation and noise suppression
+within branches but does not facilitate cross-view information exchange. Sinkhorn-based distri-
+bution alignment is the primary driver of performance improvement, increasing DSC by 2% for
+the long-axis view and 2.24% for the short-axis view, respectively. This validates that distribution-
+level semantic matching is the primary channel for cross-view knowledge transfer. When used alone,
+adaptive interaction weights yielded a negligible improvement, indicating that dynamic weighting
+cannot function effectively without the support of distribution alignment. Cross-view topological
+regularization independently optimized segmentation boundaries, increasing the long-axis DSC by
+1.14% and reducing HD95 by approximately 0.39.
+5.4
+Analysis of Different Training Data Usage
+To investigate the performance and few-shot adaptability of DPIF under different levels of data
+usage, we conducted gradient data experiments on three multi-view datasets using three represen-
+tative backbone networks (RollingUNet, UNet and UMNet). Among these, RollingUNet represents
+a class of networks with poor baseline performance, UNet represents a class of classic segmentation
+networks, and UMNet represents a class of networks with superior baseline performance. We em-
+ployed a stratified inclusive sampling method, stratified by multicenter origin and lesion proportion,
+to construct training subsets of 20%, 40%, 60%, and 80%. Smaller subsets were fully nested within
+larger ones to isolate data volume as the sole variable while preserving the statistical distribution
+of the full dataset. All experiments used a fixed test set and five-fold cross-validation. The cor-
+responding performance curves are illustrated in Fig 5. The results show that the performance
+of the dual-path model increases monotonically as the amount of training data increases.
+The
+performance improvement is most significant in the range from 20% to 40%. In most cases, the
+DPIF-enhanced model can achieve the same accuracy as the full-data single-path model even when
+the annotation rate is below 60For weaker backbone networks, DPIF delivers greater performance
+improvements. DP-RollingUNet, trained on only 20% of the labeled data, outperformed the full-
+14
+
+
+data single-path baseline model on the PME short-axis view. Cross-modal analysis indicates that
+the benefits of few-shot learning are positively correlated with task difficulty. In the PME echocar-
+diography task, DP-UMNet outperforms full-data single-path models with a 60% annotation rate.
+On the high-contrast FLARE2023 liver CT dataset, it requires only 40% annotated data. On a
+high-resolution hippocampal MRI dataset, DP-UMNet requires a 60% annotation rate to approach
+the performance of the full-data single-path model.
+5.5
+Blind Review of Segmentation Results by Clinicians
+To verify whether the improvements achieved through dual-pathway interaction could translate into
+clinically usable segmentation results, we conducted a blinded review study across three datasets.
+Three ultrasound specialists and three radiology specialists evaluated the segmentation results
+using a 1–5-point Likert scale for 30 randomly selected cases from each view. For each case, the
+original image and the segmentation results from both DP-UMNet and SP-UMNet were displayed
+simultaneously, with the positions of the results randomized to avoid subjective bias. The results
+are shown in Table6. The advantages of DP-UMNet were most pronounced in the sections with
+the weakest baseline performance: in the PME short-axis section, DP-UMNet raised the average
+score to 3.49 ± 0.60, and the proportion of cases with a score of ≥4 increased from 24.4% to
+52.2%. In cases where single-path baseline models had already achieved high clinical scores (e.g.,
+FLARE2023 short-axis and MSD short-axis), the dual-path enhancement did not yield further
+significant improvements. The inter-reader consistency (ICC) across views ranged from moderate
+to high. These results confirm that the introduction of DPIF not only improves the agreement
+between segmentation results and ground-truth labels but also demonstrates that DPIF achieves
+consistent clinical validation.
+Table 6: Comparison of subjective scores and inter-rater reliability for DP and SP across datasets
+and views.
+Dataset
+View
+Mean±SD(DP)
+Mean±SD(SP)
+Wilcoxon p (n=30)
+Cliff’s δ
+Mixed-effects β (p)
+DP-ICC(2,3)
+SP-ICC(2,3)
+PME
+Long
+3.90±0.85
+3.79±0.97
+0.647
+0.17
+0.11 (0.341)
+0.857
+0.830
+Short
+3.49±0.60
+3.07±0.67
+0.004
+0.57
+0.42 (<0.001)
+0.767
+0.687
+FLARE
+Long
+4.40±0.82
+4.00±0.89
+0.035
+0.40
+0.40 (<0.001)
+0.837
+0.717
+Short
+4.23±0.85
+4.21±0.79
+0.917
+0.10
+0.02 (0.819)
+0.815
+0.813
+MSD
+Long
+4.23±0.81
+3.96±0.70
+0.049
+0.47
+0.28 (0.001)
+0.811
+0.806
+Short
+4.21±0.74
+4.14±0.77
+0.519
+0.00
+0.07 (0.465)
+0.674
+0.632
+6
+Discussion
+In the comparative experiment, traditional multi-view methods cannot guarantee consistent perfor-
+mance improvements and sometimes even underperform compared to single-view baseline models,
+particularly on noisier, unpaired data. Thanks to its multiple functional modules—particularly
+feature alignment and two-layer decoupling, DPIF mitigates the effects of noise and differences in
+interaction targets. As a result, it continues to demonstrate performance improvements even on
+challenging datasets such as ultrasound and MRI.
+Gradient data experiments confirm that DPIF improves data utilization efficiency. The mag-
+nitude of performance improvement increases as task difficulty and baseline model performance
+decrease. For low-performance backbone networks such as RollingUNet, DPIF delivers significant
+improvements, indicating its immense potential in the field of rare diseases where annotations are
+scarce. Notably, performance continues to improve steadily even when the data usage is 100%.
+15
+
+
+Figure 5: Ablation analysis regarding the amount of training data. The dashed line represents the
+model’s DSC for training on the entire dataset in a single-path pipeline.
+16
+
+
+Therefore, DPIF serves not only as a solution for few-shot learning but also as a general-purpose
+enhancement module for fully supervised multi-view clinical pipelines.
+Nevertheless, the framework presented in this paper has some limitations. The current imple-
+mentation supports only two-view interactions, extending it to three or more views would facilitate
+the volumetric segmentation of 3D data. Topological regularization employs a differentiable persis-
+tent homology approximation, which may overlook subtle topological features. Therefore, a more
+precise differentiable topological solver is needed.
+7
+Conclusion
+This paper proposes a general-purpose, plug-and-play dual-path interaction framework called DPIF
+for multi-view medical image segmentation, which improved data utilization when data is limited.
+DPIF achieves consistent performance improvements across 24 encoder-decoder backbone networks
+and outperforms existing multi-view segmentation methods. It can match or exceed the perfor-
+mance of single-path models trained on the full dataset using only a subset of data of a certain
+size. This demonstrates that DPIF provides a practical and scalable solution for multi-view medical
+image segmentation under data-scarce conditions.
+References
+Vijay Badrinarayanan, Alex Kendall, and Roberto Cipolla. Segnet: A deep convolutional encoder-
+decoder architecture for image segmentation. IEEE transactions on pattern analysis and machine
+intelligence, 39(12):2481–2495, 2017.
+Kamal Berahmand, Fatemeh Daneshfar, Maryam Rahmaninia, Maryam Haghighat, and Mahdi
+Jalili. A comprehensive survey on multi-view classification: Methods, applications, and chal-
+lenges. ACM Transactions on Intelligent Systems and Technology, 16(6):1–34, 2025.
+Xunhang Cao, Xiaoxin Guo, Guangqi Yang, Qi Chen, and Hongliang Dong. Multi-view cross-
+consistency and multi-scale cross-layer contrastive learning for semi-supervised medical image
+segmentation. Expert Systems with Applications, 277:127223, 2025.
+Jieneng Chen, Yongyi Lu, Qihang Yu, Xiangde Luo, Ehsan Adeli, Yan Wang, Le Lu, Alan L Yuille,
+and Yuyin Zhou. Transunet: Transformers make strong encoders for medical image segmentation.
+arXiv preprint arXiv:2102.04306, 2021.
+Jingkun Chen, Haoran Duan, Xiao Zhang, Boyan Gao, Vicente Grau, and Jungong Han. From
+gaze to insight: Bridging human visual attention and vision language model explanation for
+weakly-supervised medical image segmentation. IEEE Transactions on Medical Imaging, 2025a.
+Junren Chen, Rui Chen, Wei Wang, Junlong Cheng, Lei Zhang, and Liangyin Chen. Tinyu-net:
+Lighter yet better u-net with cascaded multi-receptive fields. In International Conference on
+Medical Image Computing and Computer-Assisted Intervention, pages 626–635. Springer, 2024.
+Liang-Chieh Chen, Yukun Zhu, George Papandreou, Florian Schroff, and Hartwig Adam. Encoder-
+decoder with atrous separable convolution for semantic image segmentation. In Proceedings of
+the European conference on computer vision (ECCV), pages 801–818, 2018.
+17
+
+
+Wenna Chen, Chuanqi Cai, Xinghua Tan, Rongfu Lv, Jincan Zhang, and Ganqin Du. Maunet: a
+mixed attention u-net with spatial multi-dimensional convolution and contextual feature calibra-
+tion for 3d brain tumor segmentation in multimodal mri. Frontiers in Neuroscience, 19:1682603,
+2025b.
+Duwei Dai, Caixia Dong, Qingsen Yan, Yongheng Sun, Chunyan Zhang, Zongfang Li, and Songhua
+Xu. I2u-net: A dual-path u-net with rich information interaction for medical image segmentation.
+Medical Image Analysis, 97:103241, 2024.
+Theekshana Dissanayake, Yasmeen George, Dwarikanath Mahapatra, Shridha Sridharan, Clinton
+Fookes, and Zongyuan Ge. Few-shot learning for medical image segmentation: A review and
+comparative study. ACM Computing Surveys, 58(1):1–36, 2025.
+Feixiang Du, Xiang Wang, Shengkun Wu, Zhongliang Wang, and Joel Than. Recent advances in
+medical image segmentation by using deep learning algorithms: a brief review. Discover Applied
+Sciences, 2026.
+Xiuquan Du, Xuebin Xu, Jiajia Chen, Xuejun Zhang, Lei Li, Heng Liu, and Shuo Li. Um-net:
+Rethinking icgnet for polyp segmentation with uncertainty modeling. Medical Image Analysis,
+99:103347, 2025.
+Razvan-Gabriel Dumitru and Darius Peteleaza.
+Using duck-net for polyp image segmentation.
+Scientific Reports, 13, 06 2023. doi: 10.1038/s41598-023-36940-5.
+Shuanglang Feng, Heming Zhao, Fei Shi, Xuena Cheng, Meng Wang, Yuhui Ma, Dehui Xiang,
+Weifang Zhu, and Xinjian Chen. Cpfnet: Context pyramid fusion network for medical image
+segmentation. IEEE transactions on medical imaging, 39(10):3008–3018, 2020.
+Hong-Seng Gan, Muhammad Hanif Ramlee, Zimu Wang, and Akinobu Shimizu.
+A review on
+medical image segmentation: Datasets, technical models, challenges and solutions. Wiley Inter-
+disciplinary Reviews: Data Mining and Knowledge Discovery, 15(1):e1574, 2025.
+Yunhe Gao, Mu Zhou, and Dimitris N Metaxas. Utnet: a hybrid transformer architecture for med-
+ical image segmentation. In International conference on medical image computing and computer-
+assisted intervention, pages 61–71. Springer, 2021.
+Wendong Huang, Jinwu Hu, Junhao Xiao, Yang Wei, Xiuli Bi, and Bin Xiao. Prototype-guided
+graph reasoning network for few-shot medical image segmentation. IEEE Transactions on Medical
+Imaging, 44(2):761–773, 2024.
+Chris Kapulkin and Nathan Kershaw. Redzed: Computing persistent homology by reduction to
+zero differentials. arXiv preprint arXiv:2606.06310, 2026.
+Shyam Lal. Tc-segnet: Robust deep learning network for fully automatic two-chamber segmentation
+of two-dimensional echocardiography. Multimedia Tools and Applications, 83(2):6093–6111, 2024.
+Heng Li, Mingyang Ou, Haojin Li, Zhongxi Qiu, Ke Niu, Huazhu Fu, and Jiang Liu. Multi-view
+test-time adaptation for semantic segmentation in clinical cataract surgery. IEEE Transactions
+on Medical Imaging, 44(5):2307–2318, 2025.
+Xiaosen Li, Xiao Qin, Chengliang Huang, Yuer Lu, Jinyan Cheng, Liansheng Wang, Ou Liu,
+Jianwei Shuai, and Chang-an Yuan.
+Sunet: A multi-organ segmentation network based on
+multiple attention. Computers in Biology and Medicine, 167:107596, 2023.
+18
+
+
+Caiqi Liu, Han Liu, Xuehui Zhang, Jierui Guo, and Pengju Lv. Multi-scale and multi-view network
+for lung tumor segmentation. Computers in Biology and Medicine, 172:108250, 2024a.
+Huabing Liu, Jiawei Huang, Dengqiang Jia, Qian Wang, Jun Xu, and Dinggang Shen. Transfer-
+ring adult-like phase images for robust multi-view isointense infant brain segmentation. IEEE
+Transactions on Medical Imaging, 44(1):69–78, 2024b.
+Xiuli Liu, Xiangqiong Wu, Yang Chen, and Peng Wang. Scse-unet: A spatial channel squeeze-
+and-excitation unet for medical image segmentation. In 2024 12th International Conference on
+Information Systems and Computing Technology (ISCTech), pages 1–7. IEEE, 2024c.
+Yutong Liu, Haijiang Zhu, Mengting Liu, Huaiyuan Yu, Zihan Chen, and Jie Gao. Rolling-unet:
+Revitalizing mlp’s ability to efficiently extract long-distance dependencies for medical image
+segmentation. In Proceedings of the AAAI conference on artificial intelligence, volume 38, pages
+3819–3827, 2024d.
+Jun Ma, Yao Zhang, Song Gu, Cheng Ge, Ershuai Wang, Qin Zhou, Ziyan Huang, Pengju Lyu,
+Jian He, and Bo Wang. Automatic organ and pan-cancer segmentation in abdomen ct: the flare
+2023 challenge. arXiv preprint arXiv:2408.12534, 2024.
+Tom´aˇs Majern´ık, D´avid Truhl´aˇr, Tom´aˇs Brˇcek, Martin Kom´ak, Martin Bob´ak, and Fedor Lehocki.
+Deep learning approaches for brain tumor segmentation: A comparative study of multi-class
+pituitary region and multi-view binary segmentation. In 2026 Information Technology Scientific
+Research Conference (IIT. SRC), pages 1–6. IEEE, 2026.
+Himashi Peiris, Munawar Hayat, Zhaolin Chen, Gary Egan, and Mehrtash Harandi. Uncertainty-
+guided dual-views for semi-supervised volumetric medical image segmentation. Nature Machine
+Intelligence, 5(7):724–738, 2023.
+Yaolei Qi, Yuting He, Xiaoming Qi, Yuan Zhang, and Guanyu Yang. Dynamic snake convolu-
+tion based on topological geometric constraints for tubular structure segmentation.
+In 2023
+IEEE/CVF International Conference on Computer Vision (ICCV), pages 6047–6056. IEEE,
+2023.
+Olaf Ronneberger, Philipp Fischer, and Thomas Brox. U-net: Convolutional networks for biomedi-
+cal image segmentation. In International Conference on Medical image computing and computer-
+assisted intervention, pages 234–241. Springer, 2015.
+Amber L Simpson, Michela Antonelli, Spyridon Bakas, Michel Bilello, Keyvan Farahani, Bram
+Van Ginneken, Annette Kopp-Schneider, Bennett A Landman, Geert Litjens, Bjoern Menze, et al.
+A large annotated medical image dataset for the development and evaluation of segmentation
+algorithms. arXiv preprint arXiv:1902.09063, 2019.
+Yuting Su, Peng Ma, Weiming Wang, Shaochu Wang, Yuting Wu, Yun Li, and Peiguang Jing.
+Amdanet: Augmented multiscale difference aggregation network for image change detection.
+IEEE Transactions on Geoscience and Remote Sensing, 63:1–12, 2025.
+Jeya Maria Jose Valanarasu and Vishal M Patel. Unext: Mlp-based rapid medical image segmen-
+tation network. In International conference on medical image computing and computer-assisted
+intervention, pages 23–33. Springer, 2022.
+19
+
+
+Jeya Maria Jose Valanarasu, Vishwanath A Sindagi, Ilker Hacihaliloglu, and Vishal M Patel. Kiu-
+net: Towards accurate segmentation of biomedical images using over-complete representations. In
+International conference on medical image computing and computer-assisted intervention, pages
+363–373. Springer, 2020.
+Kun Wang, Xiaohong Zhang, Xiangbo Zhang, Yuting Lu, Sheng Huang, and Dan Yang. Eanet:
+Iterative edge attention network for medical image segmentation.
+Pattern Recognition, 127:
+108636, 2022.
+Ziyang Wang and Irina Voiculescu. Triple-view feature learning for medical image segmentation.
+In MICCAI workshop on resource-efficient medical image analysis, pages 42–54. Springer, 2022.
+Kazuki Watanabe and Noboru Isobe. Sinkhorn algorithm for sequentially composed optimal trans-
+ports. arXiv preprint arXiv:2412.03120, 2024.
+Tianyi Wu, Sheng Tang, Rui Zhang, Juan Cao, and Yongdong Zhang.
+Cgnet: A light-weight
+context guided network for semantic segmentation. IEEE Transactions on Image Processing, 30:
+1169–1179, 2020.
+Guoan Xu, Juncheng Li, Guangwei Gao, Huimin Lu, Jian Yang, and Dong Yue. Lightweight real-
+time semantic segmentation network with efficient transformer and cnn. IEEE Transactions on
+Intelligent Transportation Systems, 24(12):15897–15906, 2023.
+Bangcheng Zhan, Enmin Song, Hong Liu, Zhenyu Gong, Guangzhi Ma, and Chih-Cheng Hung.
+Cfnet: A medical image segmentation method using the multi-view attention mechanism and
+adaptive fusion strategy. Biomedical Signal Processing and Control, 79:104112, 2023.
+Qing Zhang and Weiqi Yan. Cfanet: A cross-layer feature aggregation network for camouflaged
+object detection.
+In 2023 IEEE International Conference on Multimedia and Expo (ICME),
+pages 2441–2446. IEEE, 2023.
+Hengshuang Zhao, Jianping Shi, Xiaojuan Qi, Xiaogang Wang, and Jiaya Jia. Pyramid scene pars-
+ing network. In Proceedings of the IEEE conference on computer vision and pattern recognition,
+pages 2881–2890, 2017.
+Hengshuang Zhao, Xiaojuan Qi, Xiaoyong Shen, Jianping Shi, and Jiaya Jia. Icnet for real-time
+semantic segmentation on high-resolution images. In Proceedings of the European conference on
+computer vision (ECCV), pages 405–420, 2018.
+Zhengchao Zhou, Pingping Wang, Xinggui Ji, Wanbo Xu, Zhongyi Han, and Benzheng Wei. From
+contrast-driven segmentation to central lumbar spinal stenosis grading: a comprehensive multi-
+view spinal mri image analysis. IEEE Transactions on Medical Imaging, 2026.
+Yazhou Zhu, Shidong Wang, Tao Zhou, Zechao Li, Haofeng Zhang, and Ling Shao. Cross-domain
+few-shot medical image segmentation via dynamic semantic matching. IEEE Transactions on
+Image Processing, 2025.
+20
