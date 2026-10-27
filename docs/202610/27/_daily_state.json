@@ -1,0 +1,25 @@
+{
+  "date": "20261027",
+  "date_label": "",
+  "generated_at": "2026-10-27 23:25:21 UTC",
+  "recommend_exists": true,
+  "run_count": 1,
+  "papers": [
+    {
+      "paper_id": "2610.33479v1",
+      "route": "202610/27/2610.33479v1-energy-efficient-lung-tumor-segmentation-with-a-modified-cbam-enet-skip-model",
+      "title": "Energy Efficient Lung Tumor Segmentation with a modified CBAM ENet Skip Model",
+      "section": "deep",
+      "tags": [
+        {
+          "kind": "query",
+          "label": "rt-auto-seg"
+        }
+      ],
+      "score": 8.0,
+      "evidence": "面向治疗计划的肺肿瘤分割，采用轻量深度模型",
+      "first_seen_at": "2026-10-27 23:25:21 UTC",
+      "updated_at": "2026-10-27 23:25:21 UTC"
+    }
+  ]
+}

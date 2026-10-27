@@ -1,6 +1,9 @@
 * <a class="dpr-sidebar-root-link" href="#/">首页</a>
 * <a class="dpr-sidebar-root-link dpr-sidebar-noactive-link" href="javascript:void(0)" data-dpr-hash="#/tutorial/README">使用教程</a>
 * Daily Papers
+  * 2026-10-27 <!--dpr-date:20261027-->
+    * 精读区
+      * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/202610/27/2610.33479v1-energy-efficient-lung-tumor-segmentation-with-a-modified-cbam-enet-skip-model" data-sidebar-item="{&quot;title&quot;: &quot;Energy Efficient Lung Tumor Segmentation with a modified CBAM ENet Skip Model&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/2610.33479v1-energy-efficient-lung-tumor-segmentation-with-a-modified-cbam-enet-skip-model&quot;, &quot;score&quot;: &quot;8.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;rt-auto-seg&quot;}], &quot;evidence&quot;: &quot;面向治疗计划的肺肿瘤分割，采用轻量深度模型&quot;}">Energy Efficient Lung Tumor Segmentation with a modified CBAM ENet Skip Model</a>
   * 2026-10-17 ~ 2026-10-26 <!--dpr-date:20261017-20261026-->
     * 精读区
       * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/20261017-20261026/2610.26457v1-progressive-multi-scale-tumor-state-memory-for-incomplete-multimodal-brain-tumor-segmentation" data-sidebar-item="{&quot;title&quot;: &quot;Progressive multi-scale tumor-state memory for incomplete multimodal brain tumor segmentation&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/2610.26457v1-progressive-multi-scale-tumor-state-memory-for-incomplete-multimodal-brain-tumor-segmentation&quot;, &quot;score&quot;: &quot;8.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;rt-auto-seg&quot;}], &quot;evidence&quot;: &quot;应对模态缺失的多模态MRI融合分割&quot;}">Progressive multi-scale tumor-state memory for incomplete multimodal brain tumor segmentation</a>

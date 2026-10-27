@@ -1,0 +1,24 @@
+{
+  "label": "2026-10-27",
+  "date": "2026-10-27",
+  "generated_at": "2026-10-27T23:25:23",
+  "count": 1,
+  "papers": [
+    {
+      "paper_id": "202610/27/2610.33479v1-energy-efficient-lung-tumor-segmentation-with-a-modified-cbam-enet-skip-model",
+      "section": "deep",
+      "title_en": "Energy Efficient Lung Tumor Segmentation with a modified CBAM ENet Skip Model",
+      "authors": "Sharan Thummagunti, Aayushi Padia, Abhiram Koppuravuri, Prabhu Prasad B M, G N Girish",
+      "date": "2026-10-24",
+      "pdf": "https://arxiv.org/pdf/2610.33479v1",
+      "score": "8.0",
+      "evidence": "面向治疗计划的肺肿瘤分割，采用轻量深度模型",
+      "tldr": "肺肿瘤分割对肺癌早诊与治疗规划至关重要，但高精度深度模型计算量大、依赖GPU且推理慢，限制临床部署。本文提出轻量节能的改进CBAM ENet Skip模型，以ENet实现实时推理，加入UNet式跳跃连接复用特征，并用轻量CBAM增强表征。在TCIA/MSD训练、LIDC-IDRI评估，DSC达0.90812，仅43万参数和0.549 GMAC。该模型显著降低算力需求并提升推理速度，适合资源受限临床场景。",
+      "tags": "query:rt-auto-seg",
+      "abstract_en": "Lung tumor segmentation plays a vital role in early detection and treatment planning of lung cancer. Although state-of-the-art deep learning models achieve high dice score coefficients (DSC), each forward pass requires computing large amounts of floating point operations, making them computationally expensive, requiring GPU acceleration, and having slow inference speed, limiting real-world clinical deployment. We propose a lightweight, energy-efficient model that leverages the ENet architecture for its real-time inference capability and low computational cost, enhanced with UNet-style skip connections between encoder and decoder stages for feature reuse and the lightweight Convolutional Block Attention Module (CBAM) for improved feature representation. The model is trained on publicly available data from The Cancer Imaging Archive (TCIA) via the Medical Segmentation Decathlon Challenge (MSD) and evaluated on the Lung Image Database Consortium and Image Database Resource Initiative (LIDC-IDRI) dataset. Our model achieves a DSC of 0.90812 (threshold of 0.5) with its compact architecture of 430,052 parameters and 0.549 Giga Multiply-Accumulate operations (GMAC), making it up to 10 times faster, requires 79 times less GMAC than UNet, and has 22 times fewer parameters than SegNet. These characteristics make it well-suited for deployment in clinical settings where computational resources are limited and decrease the cost of utilizing such a system. Additionally, the explainable AI technique of Grad-CAM is used to provide visual interpretability of the model's predictions and to identify regions where segmentation performance requires improvement.",
+      "source": "arxiv",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "errors": []
+}

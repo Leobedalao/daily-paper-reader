@@ -48,17 +48,17 @@
 <section class="dpr-home-dashboard-card dpr-home-report-card">
   <div class="dpr-home-dashboard-header">
     <div>
-      <span class="dpr-home-dashboard-kicker">2026-10-17 ~ 2026-10-26</span>
+      <span class="dpr-home-dashboard-kicker">2026-10-27</span>
       <h3 class="dpr-home-dashboard-title">今日汇总</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">共 11 篇</strong>
+    <strong class="dpr-home-dashboard-count">共 1 篇</strong>
   </div>
   <dl class="dpr-home-dashboard-stats">
     <div class="dpr-home-dashboard-stat"><dt>累计更新</dt><dd>1 次</dd></div>
     <div class="dpr-home-dashboard-stat"><dt>精读</dt><dd>1</dd></div>
-    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>10</dd></div>
+    <div class="dpr-home-dashboard-stat"><dt>速读</dt><dd>0</dd></div>
   </dl>
-  <p class="dpr-home-dashboard-body">最近更新：2026-10-26 18:40:40 UTC<br>状态：成功</p>
+  <p class="dpr-home-dashboard-body">最近更新：2026-10-27 23:25:21 UTC<br>状态：成功</p>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-brief-card">
   <div class="dpr-home-dashboard-header">
@@ -69,7 +69,7 @@
     <strong class="dpr-home-dashboard-count">AI</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<p>2026-10-17至10-26共筛出11篇医学图像分割论文，精读1篇、速读10篇。最值得关注的是精读的《Progressive multi-scale tumor-state memory for incomplete multimodal brain tumor segmentation》（8.0/10），它针对多模态脑肿瘤分割中模态缺失的问题；速读中《A General-Purpose Dual-Path Interaction Framework for Multi-View Medical Image Segmentation》（7.0/10）关注小样本下减少数据量依赖，也值得留意。普通读者可优先看这两篇的方法思路，其余速读论文先看摘要即可。</p>
+<p>今日精读 1 篇肺肿瘤分割研究，聚焦节能与精度兼顾的改进 CBAM ENet 跳跃连接模型。最值得看的是该模型在肺部肿瘤分割中同时优化能效与分割表现，评分 8.0。普通读者可优先了解 CBAM 注意力机制与 ENet 结合如何降低计算开销，再判断其临床落地价值。</p>
   </div>
 </section>
 <section class="dpr-home-dashboard-card dpr-home-deep-card">
@@ -81,7 +81,7 @@
     <strong class="dpr-home-dashboard-count">1 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Progressive multi-scale tumor-state memory for incomplete multimodal brain tumor segmentation">Progressive multi-scale tumor-state memory for incomplete multimodal brain tumor segmentation</span></li></ul>
+<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="Energy Efficient Lung Tumor Segmentation with a modified CBAM ENet Skip Model">Energy Efficient Lung Tumor Segmentation with a modified CBAM ENet Skip Model</span></li></ul>
   </div>
   <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rt-auto-seg <strong>1</strong></span></div>
 </section>
@@ -91,12 +91,12 @@
       <span class="dpr-home-dashboard-kicker">今日累计</span>
       <h3 class="dpr-home-dashboard-title">速读推荐</h3>
     </div>
-    <strong class="dpr-home-dashboard-count">10 篇</strong>
+    <strong class="dpr-home-dashboard-count">0 篇</strong>
   </div>
   <div class="dpr-home-dashboard-body">
-<ul class="dpr-home-dashboard-paper-list"><li><span class="dpr-home-dashboard-paper-title" title="A General-Purpose Dual-Path Interaction Framework for Multi-View Medical Image Segmentation: Alleviating Data Volume Dependency in Small-Sample Regimes">A General-Purpose Dual-Path Interaction Framework for Multi-View Medical Image Segmentation: Alleviating Data Volume Dependency in Small-Sample Regimes</span></li><li><span class="dpr-home-dashboard-paper-title" title="Deep Auxiliary Learning via Bilevel Feature Optimization for Label-Efficient Medical Image Segmentation">Deep Auxiliary Learning via Bilevel Feature Optimization for Label-Efficient Medical Image Segmentation</span></li><li><span class="dpr-home-dashboard-paper-title" title="DART: Scaling a Shape Representation Across Anatomical Classes and Imaging Modalities">DART: Scaling a Shape Representation Across Anatomical Classes and Imaging Modalities</span></li></ul>
+<p class="dpr-home-dashboard-empty">今日暂无推荐。</p>
   </div>
-  <div class="dpr-home-dashboard-tags"><span class="dpr-home-dashboard-tag">rt-auto-seg <strong>10</strong></span></div>
+
 </section>
 </div>
 
