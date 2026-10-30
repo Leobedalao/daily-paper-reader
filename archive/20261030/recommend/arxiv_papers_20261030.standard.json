@@ -1,0 +1,244 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-10-30T23:18:25.846807+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 2,
+    "deep_cap": 6,
+    "deep_selected": 2,
+    "quick_candidates": 4,
+    "quick_skim_target": 11,
+    "quick_selected": 4
+  },
+  "deep_dive": [
+    {
+      "id": "2610.40068v1",
+      "source": "arxiv",
+      "title": "BRACHIO: Broad Representations Across Centres for Head-and-neck Imaging Oncology (HECKTOR 2026)",
+      "abstract": "The HECKTOR 2026 challenge benchmarks machine learning for head and neck cancer, where teams delineate primary and nodal tumour volumes, perform TN staging, and predict recurrence-free survival (RFS). This report describes the submissions for the HECKTOR challenge of team nucli. As the three tasks span both dense and global information from multicentric PET/CT scans, we utilise self-supervised pre-trained encoders, training a 2D DINOv2 encoder (PET-DINOv2-MIPs) on HECKTOR 2026's PET scans. Our final test submission ensembles a DynUNet trained from scratch with a SwinUNETR whose Swin trunk was initialised from a SimMIM-pre-trained checkpoint for segmentation, reaching a mean Dice of 0.5409. For TN staging, GTVp/GTVn geometric features from the segmentation masks are fit to stage probabilities by logistic regression (LR) and fused with PET-DINOv2-MIPs deep features (PCA + LR) via a second-level LR, reaching balanced accuracies of 0.3962 (T-stage) and 0.6432 (N-stage). For the RFS prognosis task, we fine-tune the last two blocks of the PET-DINOv2-MIPs ViT-S encoder jointly with an MLP head under a CoxPH loss, concatenating clinical covariates with the imaging features, reaching a test Harrell's C-index of 0.6577 and a weighted challenge score of 0.5802. The prognosis result is comparable to the best entry of the previous edition and consistent with our internal cross-validation, while our segmentation result is well below it and limits the staging results that depend on it.",
+      "authors": [
+        "Roxanne De Maeyer",
+        "Ine Dirks",
+        "Yannick Brackenier",
+        "Simon DeKeyser",
+        "Jef Vandemeulebroucke",
+        "Vicky De Ridder"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-10-29T13:50:26+00:00",
+      "link": "https://arxiv.org/pdf/2610.40068v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Head-and-neck PET/CT GTV delineation with DynUNet and SwinUNETR ensemble, Dice 0.5409",
+      "llm_evidence_cn": "头颈PET/CT的GTV勾画，DynUNet与SwinUNETR集成，Dice 0.5409",
+      "llm_evidence": "头颈PET/CT的GTV勾画，DynUNet与SwinUNETR集成，Dice 0.5409",
+      "canonical_evidence": "头颈PET/CT的GTV勾画，DynUNet与SwinUNETR集成，Dice 0.5409",
+      "llm_tldr_en": "Team nucli's HECKTOR 2026 submission ensembles DynUNet and SimMIM-pretrained SwinUNETR with PET DINOv2 encoders, reaching mean Dice 0.5409 for head-and-neck GTV segmentation on multicentric PET/CT.",
+      "llm_tldr_cn": "头颈癌多中心PET/CT影像中，原发与淋巴结靶区勾画、TN分期及无复发生存预测均具挑战。nucli团队采用在PET上自监督训练的DINOv2编码器，并将从头训练的DynUNet与SimMIM预训练SwinUNETR集成用于分割，同时结合GTV几何特征完成分期。测试集分割平均Dice为0.5409。该工作展示了自监督预训练与多模型集成在跨中心放疗靶区自动分割中的实用价值。",
+      "llm_tldr": "头颈癌多中心PET/CT影像中，原发与淋巴结靶区勾画、TN分期及无复发生存预测均具挑战。nucli团队采用在PET上自监督训练的DINOv2编码器，并将从头训练的DynUNet与SimMIM预训练SwinUNETR集成用于分割，同时结合GTV几何特征完成分期。测试集分割平均Dice为0.5409。该工作展示了自监督预训练与多模型集成在跨中心放疗靶区自动分割中的实用价值。",
+      "llm_tags": [
+        "query:rt-auto-seg"
+      ],
+      "matched_query_tag": "query:rt-auto-seg",
+      "matched_query_text": "Automatic segmentation of target volumes and organs at risk from CT, MR, PET, or CBCT images for radiotherapy.",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2610.40094v1",
+      "source": "arxiv",
+      "title": "RepConTUR: A Report-Conditioned Volumetric Multimodal Model for Abdominal Tumor Segmentation",
+      "abstract": "Tumor delineation is required for radiotherapy planning, yet automatic segmentation is limited by errors, predominantly false positives, that distort dose and increase editing time. The radiology report accompanies the scan and localizes disease at the suborgan level, but existing text-promptable models condition on short referring phrases, and most operate in 2D. We present RepConTUR, a single native-3D early-fusion multimodal model that conditions volumetric abdominal tumor segmentation on the narrative report. We extend AbdomenAtlas 3.0 to a suborgan-level promptable segmentation dataset and generate report-based VQA pairs, yielding four report-derived tasks on the same annotations: referring segmentation (RES), report-grounded segmentation (GSEG), report generation (RRG), and visual question answering (VQA). We train RepConTUR, comprising a 3D CT encoder, an early-fusion language model, and a native-3D segmentation module, jointly on the four tasks. Across liver, kidney and pancreas, RepConTUR attains the highest Dice similarity coefficient (DSC), instance-wise precision, and detection F1 among the text-promptable baselines, and adding the report raises mean precision while leaving recall comparable. Against two vision-only specialists, nnU-Net and the report-supervised R-Super, RepConTUR attains the highest value on every in-domain metric for liver and pancreas and the highest mean DSC, recall, precision, and detection F1 over the four out-of-distribution public cohorts. Ablations indicate that conditioning on the narrative report raises detection F1 from 0.499 to 0.528 within the same model, that joint GSEG training raises RES F1 from 0.450 to 0.482, and that the native-3D segmentation module raises GSEG F1 from 0.139 to 0.528 over its 2D counterpart. Code is available at https://github.com/Oncosoft-Research/RepConTUR.",
+      "authors": [
+        "Seunghwan Lee",
+        "Sangjoon Park",
+        "Jongmin Lee",
+        "Yoon Jo Kim",
+        "Wonyoung Cho",
+        "Jin Sung Kim",
+        "Han Joo Chae"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-10-29T13:59:44+00:00",
+      "link": "https://arxiv.org/pdf/2610.40094v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "report-conditioned 3D tumor delineation for radiotherapy planning",
+      "llm_evidence_cn": "面向放疗计划的报告条件三维肿瘤勾画",
+      "llm_evidence": "面向放疗计划的报告条件三维肿瘤勾画",
+      "canonical_evidence": "面向放疗计划的报告条件三维肿瘤勾画",
+      "llm_tldr_en": "Automatic tumor delineation for radiotherapy suffers false positives that distort dose. RepConTUR is a native-3D early-fusion model conditioning abdominal tumor segmentation on the narrative radiology report, built on a suborgan-level promptable dataset with report-derived tasks.",
+      "llm_tldr_cn": "肿瘤勾画是放疗计划的必要环节，但自动分割的假阳性会扭曲剂量并增加医生编辑负担；放射报告虽能定位病变，现有文本提示模型却多用短短语且局限于二维。作者提出RepConTUR，一种原生三维早期融合多模态模型，以叙述式报告为条件进行腹部肿瘤分割，并把AbdomenAtlas 3.0扩展到亚器官级可提示数据集。该工作为放疗靶区自动勾画提供了报告引导的新范式。",
+      "llm_tldr": "肿瘤勾画是放疗计划的必要环节，但自动分割的假阳性会扭曲剂量并增加医生编辑负担；放射报告虽能定位病变，现有文本提示模型却多用短短语且局限于二维。作者提出RepConTUR，一种原生三维早期融合多模态模型，以叙述式报告为条件进行腹部肿瘤分割，并把AbdomenAtlas 3.0扩展到亚器官级可提示数据集。该工作为放疗靶区自动勾画提供了报告引导的新范式。",
+      "llm_tags": [
+        "query:rt-auto-seg"
+      ],
+      "matched_query_tag": "query:rt-auto-seg",
+      "matched_query_text": "Automatic delineation and segmentation of radiotherapy target volumes.",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2610.39414v1",
+      "source": "arxiv",
+      "title": "Anatomical Prior-Guided Routing for 3D Lung Tumor Segmentation",
+      "abstract": "Accurate lung tumor segmentation in computed tomography (CT) is essential for treatment planning, response assessment, and quantitative imaging analysis. However, 3D lung tumor segmentation remains challenging because tumors occupy only a small portion of the whole volume and exhibit heterogeneous appearances across anatomical locations. In patch-based training and sliding-window inference for 3D medical image segmentation, location-dependent heterogeneity is further amplified because cropped image patches provide limited global anatomical context, making it difficult for a model to adapt its feature processing according to the anatomical region from which each patch is extracted. To address this limitation, we propose an Anatomical Prior-guided Routing Module (APRM) for lung tumor segmentation. For each image patch, we obtain anatomical prior information of regional occupancy and deterministically select an anatomical routing gate. The selected gate then performs sparse feature routing over a shared expert adapter pool, enabling anatomy-specific feature adaptation while sharing expert capacity across regions. We evaluate APRM on two datasets with various backbone networks and demonstrate consistent improvements over baseline models. Furthermore, feature visualizations show that APRM produces different feature responses depending on patch location, indicating that the proposed routing mechanism effectively adapts feature processing according to anatomical context.",
+      "authors": [
+        "Uihyeon Maeng",
+        "Jonghun Kim",
+        "Hyunjin Park"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-10-29T05:55:51+00:00",
+      "link": "https://arxiv.org/pdf/2610.39414v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "3D lung tumor segmentation in CT for treatment planning",
+      "llm_evidence_cn": "用于治疗计划的CT三维肺肿瘤分割",
+      "llm_evidence": "用于治疗计划的CT三维肺肿瘤分割",
+      "canonical_evidence": "用于治疗计划的CT三维肺肿瘤分割",
+      "llm_tldr_en": "Lung tumor segmentation in CT is key to radiotherapy planning but hard because tumors are small and heterogeneous across locations. The authors add an anatomical prior-guided routing module that adapts patch feature processing to the region of origin, improving 3D segmentation.",
+      "llm_tldr_cn": "CT中的肺肿瘤分割对放疗计划与疗效评估至关重要，但肿瘤体积小且在不同解剖位置表现差异大，基于切块训练与滑窗推理会进一步丢失全局解剖语境。作者提出解剖先验引导的路由模块，依据每个切块所属解剖区域动态调整特征处理流程。实验表明该方法能有效缓解位置相关异质性带来的分割困难，提升三维肺肿瘤分割精度。",
+      "llm_tldr": "CT中的肺肿瘤分割对放疗计划与疗效评估至关重要，但肿瘤体积小且在不同解剖位置表现差异大，基于切块训练与滑窗推理会进一步丢失全局解剖语境。作者提出解剖先验引导的路由模块，依据每个切块所属解剖区域动态调整特征处理流程。实验表明该方法能有效缓解位置相关异质性带来的分割困难，提升三维肺肿瘤分割精度。",
+      "llm_tags": [
+        "query:rt-auto-seg"
+      ],
+      "matched_query_tag": "query:rt-auto-seg",
+      "matched_query_text": "automated target volume delineation in radiotherapy imaging",
+      "matched_requirement_id": "req-5",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2610.38776v1",
+      "source": "arxiv",
+      "title": "A 211K Parameter Foundation Model: Genetic Prompting in Neural Cellular Automata",
+      "abstract": "The scale of modern foundation models enables broad task generalization. In medical imaging, where segmentation demands vary widely across clinical contexts, such flexibility is invaluable. But current models, such as SAM trade adaptability for scale, locking their utility behind high-end infrastructure and leaving behind the low-resource environments most in need of diagnostic support. To bridge this gap, we introduce Foundational-NCA, a lightweight foundation model capable of adapting to a wide range of medical segmentation tasks without retraining. Built on Neural Cellular Automata (NCA), Foundational-NCA incorporates gradient-based learning with genetic optimization over a latent task space, using a compact task vector to guide predictions. This enables dynamic adaptation via a genetic prompt mechanism, allowing the model to generalize across tasks while keeping the parameter count magnitudes lower at just 211 thousand, compared to SAM-based models with 38.9 to 636 million parameters. We evaluate Foundational-NCA on 15 trained and 6 entirely unseen segmentation tasks from the TotalSegmentator dataset, achieving an average Dice score of 84.5% on known tasks and 60.4% on unseen ones. These results demonstrate that task generalization is possible in ultra-compact models, laying the groundwork for resource-efficient, deployable foundation models in clinical environments where infrastructure is limited. By reducing model size by over 180 times, Foundational-NCA takes a step toward a more equitable future for medical AI, one where powerful tools are within reach of every healthcare setting.",
+      "authors": [
+        "John Kalkhof",
+        "Niklas Ihm",
+        "Daniel Kirste",
+        "Anirban Mukhopadhyay"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-10-28T19:50:59+00:00",
+      "link": "https://arxiv.org/pdf/2610.38776v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "Lightweight foundation model adapting to diverse medical segmentation tasks without retraining",
+      "llm_evidence_cn": "无需重训练即可适配多种医学分割任务的轻量基础模型",
+      "llm_evidence": "无需重训练即可适配多种医学分割任务的轻量基础模型",
+      "canonical_evidence": "无需重训练即可适配多种医学分割任务的轻量基础模型",
+      "llm_tldr_en": "Foundational-NCA is a 211K-parameter neural cellular automata foundation model that adapts to diverse medical segmentation tasks without retraining via genetic task-vector prompting.",
+      "llm_tldr_cn": "现有医学分割基础模型如SAM以规模换适应性，依赖高端算力，难以服务低资源临床环境。作者提出Foundational-NCA，基于神经细胞自动机，将梯度学习与遗传优化结合在潜在任务空间中，用紧凑任务向量引导预测。该模型仅约21.1万参数，即可在无需重训练的情况下适配多种医学分割任务。这为轻量化、可快速适配的分割基础模型提供了新路径，可支撑多场景靶区与器官分割的迁移应用。",
+      "llm_tldr": "现有医学分割基础模型如SAM以规模换适应性，依赖高端算力，难以服务低资源临床环境。作者提出Foundational-NCA，基于神经细胞自动机，将梯度学习与遗传优化结合在潜在任务空间中，用紧凑任务向量引导预测。该模型仅约21.1万参数，即可在无需重训练的情况下适配多种医学分割任务。这为轻量化、可快速适配的分割基础模型提供了新路径，可支撑多场景靶区与器官分割的迁移应用。",
+      "llm_tags": [
+        "query:rt-auto-seg"
+      ],
+      "matched_query_tag": "query:rt-auto-seg",
+      "matched_query_text": "Automatic segmentation of target volumes and organs at risk from CT, MR, PET, or CBCT images for radiotherapy.",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2610.40085v1",
+      "source": "arxiv",
+      "title": "Morphology-Aware Channel-Decoupled Mamba Network for Medical Image Segmentation",
+      "abstract": "Accurate multi-organ segmentation in computed tomography (CT) is essential for computer-aided diagnosis, treatment planning, and disease monitoring. However, substantial variations in organ shape and size, together with low tissue contrast and ambiguous boundaries, complicate the modeling of heterogeneous anatomical structures. To address these challenges, we propose a Morphology-Aware Channel-Decoupled Mamba Network (MCDNet), which integrates adaptive local structural enhancement with channel-decoupled long-range modeling. Specifically, we introduce a Morphology-Aware Channel-Decoupled State-Space (MCSS) block that divides feature channels into separate processing groups, allowing differentiated structural representations to be learned within an efficient state-space framework. Within each group, a Morphology-Aware Enhancement Module (MAEM) combines deformable convolutions with channel attention to adapt local feature extraction to anatomical shape variations. Group-wise state-space modeling then captures long-range spatial dependencies, and channel gating adaptively integrates the resulting features. Experiments on the Synapse abdominal CT dataset demonstrate the effectiveness of MCDNet, achieving an average Dice Similarity Coefficient of 81.61% for multi-organ segmentation.",
+      "authors": [
+        "Chenchen Wang",
+        "You Zhou"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-10-29T13:55:02+00:00",
+      "link": "https://arxiv.org/pdf/2610.40085v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Multi-organ CT segmentation for treatment planning with morphology-aware Mamba network",
+      "llm_evidence_cn": "面向治疗计划的CT多器官分割，形态感知Mamba网络",
+      "llm_evidence": "面向治疗计划的CT多器官分割，形态感知Mamba网络",
+      "canonical_evidence": "面向治疗计划的CT多器官分割，形态感知Mamba网络",
+      "llm_tldr_en": "MCDNet combines morphology-aware channel-decoupled state-space blocks with local structural enhancement for accurate multi-organ CT segmentation under low contrast and ambiguous boundaries.",
+      "llm_tldr_cn": "CT多器官分割对辅助诊断与放疗治疗计划至关重要，但器官形状大小差异大、组织对比低、边界模糊，使异质解剖结构建模困难。作者提出形态感知通道解耦Mamba网络MCDNet，其MCSS模块将特征通道分组处理，并结合自适应局部结构增强与通道解耦的长程建模。实验表明该方法能更准确刻画形态多变的器官结构。该思路可直接迁移用于放疗危及器官自动勾画。",
+      "llm_tldr": "CT多器官分割对辅助诊断与放疗治疗计划至关重要，但器官形状大小差异大、组织对比低、边界模糊，使异质解剖结构建模困难。作者提出形态感知通道解耦Mamba网络MCDNet，其MCSS模块将特征通道分组处理，并结合自适应局部结构增强与通道解耦的长程建模。实验表明该方法能更准确刻画形态多变的器官结构。该思路可直接迁移用于放疗危及器官自动勾画。",
+      "llm_tags": [
+        "query:rt-auto-seg"
+      ],
+      "matched_query_tag": "query:rt-auto-seg",
+      "matched_query_text": "automatic delineation of organs at risk for radiotherapy treatment planning",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2610.40029v1",
+      "source": "arxiv",
+      "title": "Segment Anything Model Based Context Guided Mamba Unet for Medical Image Segmentation",
+      "abstract": "Medical image segmentation is crucial for clinical diagnosis and treatment planning, requiring both global contextual understanding and fine-grained structural precision. While the Segment Anything Model (SAM) demonstrates strong generalization capabilities, its direct application to medical images often lacks domain-specific adaptability. Meanwhile, State Space Models (SSMs)-based methods, such as Mamba, efficiently capture long-range dependencies but may struggle with preserving fine anatomical details. To address these challenges, we propose a segment anything model based context guided mamba unet, SAMBA-UNet, a novel framework that integrates SAM's context knowledge with Mamba's hierarchical feature learning to enhance both global representation and local detail refinement. Specifically, we introduce the Hierarchical Context Enhancement Module (HCEM), an attention-based fusion module that deeply incorporates the multi-level features of SAM and Mamba to improve detail perception and segmentation precision. Additionally, we employ LoRA and Adapter-based fine-tuning to adapt SAM to medical imaging tasks, further enhancing its domain-specific segmentation capability and robustness. We conducted a comprehensive study on several medical segmentation datasets, including Synapse, ISIC17, and ISIC18, evaluating our method across multiple metrics. Experimental results demonstrate that SAMBA-UNet achieves state-of-the-art performance, effectively balancing generalization, segmentation accuracy, and computational efficiency. Our code will be released upon acceptance.",
+      "authors": [
+        "Chenchen Wang",
+        "You Zhou"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-10-29T13:36:01+00:00",
+      "link": "https://arxiv.org/pdf/2610.40029v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "general medical image segmentation framework combining SAM and Mamba, transferable to radiotherapy target and OAR delineation",
+      "llm_evidence_cn": "融合SAM与Mamba的通用医学图像分割框架，可迁移至放疗靶区与危及器官分割",
+      "llm_evidence": "融合SAM与Mamba的通用医学图像分割框架，可迁移至放疗靶区与危及器官分割",
+      "canonical_evidence": "融合SAM与Mamba的通用医学图像分割框架，可迁移至放疗靶区与危及器官分割",
+      "llm_tldr_en": "Proposes SAMBA-UNet integrating SAM context knowledge with Mamba hierarchical feature learning to balance global context and fine anatomical detail for medical image segmentation.",
+      "llm_tldr_cn": "针对医学图像分割既需要全局上下文又需要精细结构、而SAM直接用于医学图像缺乏领域适应性且Mamba难以保留解剖细节的问题，提出SAMBA-UNet框架，将SAM的上下文知识与Mamba的层次特征学习相结合。该设计旨在同时增强全局上下文理解与细粒度结构保持，为临床诊断和治疗计划中的分割提供通用方法，但摘要未给出定量实验结果，仍需在放疗靶区与危及器官等具体任务上验证。",
+      "llm_tldr": "针对医学图像分割既需要全局上下文又需要精细结构、而SAM直接用于医学图像缺乏领域适应性且Mamba难以保留解剖细节的问题，提出SAMBA-UNet框架，将SAM的上下文知识与Mamba的层次特征学习相结合。该设计旨在同时增强全局上下文理解与细粒度结构保持，为临床诊断和治疗计划中的分割提供通用方法，但摘要未给出定量实验结果，仍需在放疗靶区与危及器官等具体任务上验证。",
+      "llm_tags": [
+        "query:rt-auto-seg:composite"
+      ],
+      "matched_query_tag": "query:rt-auto-seg:composite",
+      "matched_query_text": "Papers central to 检索用于放射治疗的CT/MR/PET/CBCT等单模态或多模态医学影像中靶区与危及器官自动分割的研究, especially work that connects or combines: s; Automatic delineation and segmentation of radiotherapy target volumes.; automatic delineation of organs at risk for radiotherapy treatment planning; Fusion and joint learning across multiple medical imaging modalities for segmentation.; automated target volume delineation in radiotherapy imaging; Automatic segmentation of target volumes and organs at risk from CT, MR, PET, or CBCT images for radiotherapy..",
+      "matched_requirement_id": "req-composite-rt-auto-seg",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    }
+  ]
+}

@@ -1,0 +1,1198 @@
+A 211K Parameter Foundation Model: Genetic
+Prompting in Neural Cellular Automata
+John Kalkhof ∗
+Niklas Ihm
+Daniel Kirste
+Anirban Mukhopadhyay
+Darmstadt University of Technology, Karolinenplatz 5, 64289 Darmstadt, Germany
+Abstract
+The scale of modern foundation models enables broad task generalization. In
+medical imaging, where segmentation demands vary widely across clinical contexts,
+such flexibility is invaluable. But current models, such as SAM trade adaptability
+for scale, locking their utility behind high-end infrastructure and leaving behind
+the low-resource environments most in need of diagnostic support. To bridge this
+gap, we introduce Foundational-NCA, a lightweight foundation model capable of
+adapting to a wide range of medical segmentation tasks without retraining. Built
+on Neural Cellular Automata (NCA), Foundational-NCA incorporates gradient-
+based learning with genetic optimization over a latent task space, using a compact
+task vector to guide predictions. This enables dynamic adaptation via a genetic
+prompt mechanism, allowing the model to generalize across tasks while keeping the
+parameter count magnitudes lower at just 211 thousand, compared to SAM-based
+models with 38.9 to 636 million parameters. We evaluate Foundational-NCA on
+15 trained and 6 entirely unseen segmentation tasks from the TotalSegmentator
+dataset, achieving an average Dice score of 84.5% on known tasks and 60.4%
+on unseen ones. These results demonstrate that task generalization is possible in
+ultra-compact models, laying the groundwork for resource-efficient, deployable
+foundation models in clinical environments where infrastructure is limited. By
+reducing model size by over 180 times, Foundational-NCA takes a step toward a
+more equitable future for medical AI, one where powerful tools are within reach of
+every healthcare setting.
+1
+Introduction
+The rise of foundation models has marked a shift from task-specific tools to scalable, unified
+systems capable of broad generalization. In medical imaging, this versatility promises transformative
+improvements in diagnostics and patient care [29], enabling accurate, scalable segmentation across
+clinical contexts. Yet, the immense computational scale of these systems, typically involving hundreds
+of millions of parameters, restricts their deployment to high-resource environments [1]. Consequently,
+their substantial benefits remain inaccessible precisely in regions where advanced AI could make the
+greatest difference: low-resource healthcare settings, such as low and middle-income countries with
+critical shortages of medical personnel [4, 7, 16, 18, 21].
+This disparity has profound implications for global health equity. Accurate and accessible AI-driven
+segmentation can directly influence patient outcomes, underpinning critical decisions from early
+disease detection to surgical planning [15, 26, 32]. However, current state-of-the-art solutions, such as
+the Segment Anything Model (SAM) [13] and its medically-adapted variant MedSAM [15], remain
+impractically large, requiring between 38.9 and 636 million parameters. This complexity makes their
+deployment on widely available, cost-effective hardware such as smartphones infeasible, particularly
+∗Corresponding author:
+john.kalkhof@inria.fr
+arXiv:2610.38776v1  [cs.CV]  28 Oct 2026
+
+
+Figure 1: (A) A genetic tree visualizes how Foundational-NCA organizes and separates task prompts
+for different segmentation targets. (B) These task prompts, combined with positional encoding and
+the input image, guide the model’s dynamic prediction process. (C) Unlike SAM variants, which
+require millions of parameters, Foundational-NCA achieves strong generalization with just 211K
+parameters.
+problematic in medical settings where strict privacy regulations prevent the transfer of sensitive
+patient data to external servers [14, 28].
+Neural Cellular Automata (NCAs) [6, 20], inspired by self-organizing biological systems, present a
+promising alternative due to their minimal resource requirements [9], low parameter count [2, 8, 11,
+19, 23, 24] and inherent adaptability [10]. Recent advancements, such as Med-NCA [8, 10], have
+shown that NCA can achieve strong segmentation performance with significantly fewer resources.
+However, current NCA-based segmentation models are fundamentally limited: they are designed for
+single-task scenarios and lack the flexibility required to handle multiple tasks dynamically.
+In this work, we introduce Foundational-NCA, the first NCA-based foundation model capable of
+adapting dynamically across multiple segmentation tasks via prompt-based conditioning. Central to
+our approach is a compact, continuous task vector, optimized using genetic algorithms (GA) [27] to
+encode specific segmentation objectives. This task vector modulates the NCA’s update dynamics at
+each step, allowing a single fixed model to perform diverse segmentation tasks without any weight
+modifications (Figure 1). By integrating genetic optimization for task conditioning with gradient-
+based training of model parameters, Foundational-NCA generalizes effectively across 15 trained
+anatomical targets and demonstrates promising adaptability to 6 entirely unseen segmentation tasks,
+delivering foundation-level versatility with only 211K parameters.
+Evaluated on the TotalSegmentator dataset [31], Foundational-NCA achieves an average Dice score
+of 84.5% across 15 training tasks and 60.4% on 6 unseen tasks, using only 211K parameters. In
+comparison, MedSAM, a 93-million-parameter foundation model, attains 75.8% and 73.4% on the
+same task sets. While Foundational-NCA shows a trade-off in generalization to unseen targets, it
+outperforms MedSAM on seen tasks with over 400× fewer parameters, highlighting the potential of
+compact, prompt-driven models for low-resource scenarios.
+By substantially reducing hardware requirements and demonstrating a first step toward generalization
+within an ultra-lightweight foundation model, Foundational-NCA offers a promising direction for
+democratizing medical AI. It provides an initial framework toward universally accessible foundation
+models, compact, adaptive, and with the potential to bring advanced healthcare solutions closer to
+everyone, everywhere.
+2
+
+
+2
+Related Work
+This work builds upon two key areas: genetic optimization, a class of gradient-free search algorithms
+well-suited to non-differentiable objectives, and neural cellular automata, a paradigm for self-
+organizing, locally updated neural networks.
+2.1
+Genetic Optimization
+Genetic Optimization (GO), originally introduced in the 1970s [27], simulates evolutionary processes
+by iteratively improving a population of candidate solutions through selection, mutation, and crossover.
+Given an objective function f : Rd →R, GO seeks an optimal input x∗∈Rd such that f(x∗) =
+minx∈Rd f(x), without requiring f to be differentiable or continuous.
+Let Pt = {x(t)
+i }N
+i=1 ⊂Rd denote a population at generation t. Each candidate x(t)
+i
+is evaluated via
+the scalar fitness function f(x(t)
+i ). A selection operator S retains the top k < N. New candidates are
+then sampled via a crossover operator C and perturbed through mutation M, i.e.,
+x(t+1)
+j
+= M(C(x(t)
+a , x(t)
+b ), ϵ),
+xa, xb ∈S(Pt),
+where ϵ ∼N(0, σ2I) introduces stochastic variation. The process repeats until convergence or a
+fixed budget is reached.
+The strength of GO lies in its independence from gradient information, enabling optimization over
+black-box, discrete, or non-differentiable objectives. Its main drawback is sample inefficiency:
+convergence requires orders of magnitude more evaluations than gradient-based methods [17, 3].
+2.2
+Neural Cellular Automata
+Neural Cellular Automata (NCA) are models characterized by local communication and self-
+organization, first introduced by [20]. They build upon the concept of classical Cellular Automata,
+originally proposed by von Neumann [30] in the 1940s, where complex global behavior emerges from
+simple local interactions. Unlike traditional Cellular Automata, which rely on hand-crafted update
+rules, NCA replace these rules with a learnable, fully convolutional neural network with pixel-based
+dropout, that governs the state updates of each cell based solely on local neighborhood information.
+The model evolves iteratively, applying the learned update rule over multiple time steps to reach a
+predefined target state. However, early applications of NCA were largely confined to toy problems due
+to the high memory demands of storing state trajectories during training and slow local communication.
+This bottleneck was alleviated by the work of [8], who introduced a memory-efficient training
+procedure that allows NCA to be applied to more complex and practical tasks.
+3
+Methodology
+We introduce Foundational-NCA, a compact NCA architecture conditioned on a learned task vector,
+enabling segmentation of multiple anatomical targets without weight modification. This is achieved
+through a combination of gradient-based training and genetic optimization.
+3.1
+Backbone
+We build on the Med-NCA architecture [8], which enhances NCA for high-resolution medical image
+segmentation by addressing two key challenges: (1) the inability of standard NCAs to capture both
+global context and fine spatial detail, and (2) the high memory cost of storing recurrent NCA states
+during training. Med-NCA introduces a multi-scale hierarchical design, where a coarse-resolution
+model m1 processes a downsampled image, and a fine-resolution model m2 refines the output using
+both high-resolution input and coarse features. This design enables the model to reason over global
+structures while preserving fine anatomical boundaries. Additionally, a randomized patch-based
+training strategy greatly reduces GPU memory requirements. We refer readers to the Med-NCA
+papers [8, 10] for full architectural and implementation details.
+3
+
+
+Figure 2: (A) A single input image is paired with a task-specific latent vector, enabling the model
+to produce different segmentation outputs for the same input. (B) The task vector serves as a
+multiplicative conditioning signal within the NCA architecture, modulating the update dynamics. (C)
+Training alternates between two phases: model updates are performed via gradient descent, while
+task vector optimization is carried out using genetic optimization.
+3.2
+Prompting NCAs
+In Foundational-NCA, we extend Med-NCA by incorporating two conditioning prompts: a task
+prompt and a positional prompt. These prompts are integrated into the NCA architecture to provide
+additional contextual information during the segmentation process. The task prompt specifies the
+segmentation target, while the positional prompt defines a starting point, allowing the model to better
+localize anatomical regions.
+To integrate the prompts into the NCA architecture, the task prompt is concatenated directly to the
+state of each cell in the NCA grid (Figure 2 A), ensuring task-specific context is available throughout
+the update process. Additionally, the task prompt is processed by two small networks consisting of
+1 × 1 convolutions and a SiLU activation, with its output applied multiplicatively to two intermediate
+feature maps during each NCA update (Figure 2 B). For simplicity, Figure 2 shows the architecture
+for one level, but the same process is applied to both the coarse and fine-resolution models m1 and
+m2. Assuming a meaningful task representation is stored in the task space, the model can dynamically
+adapt to different segmentation tasks by simply modifying the task vector prompt, without the need
+for retraining.
+3.3
+Genetic Task Vector
+We propose a novel formulation where each input image x ∈RH×W ×C is paired with a latent task
+vector t ∈Rd, which specifies the segmentation target. The task vector t allows the model to adapt to
+different segmentation tasks. Unlike traditional multi-class segmentation models, we do not provide
+explicit task labels or predefined class embeddings.
+To optimize t for a given [image x, mask y] pair, we use genetic optimization (GO), which iteratively
+refines a task vector Pool Pt(x) based on segmentation performance (Algorithm 1). This process
+converges to a region in task space that yields high segmentation performance for the target anatomy,
+without requiring the model to be explicitly told what the anatomy is.
+This optimization enables the NCA to decouple the concepts of what to segment and how to segment,
+facilitating foundation-like generalization within a compact architecture. Once an optimal task vector
+t∗is identified for a class through genetic optimization, it can be reused for other images of the same
+class at inference time. Importantly, we discover task vectors for unseen tasks by optimizing t
+using only a single annotated scan from a held-out validation patient, enabling model reuse with
+minimal supervision and efficient segmentation across unseen tasks.
+4
+
+
+Algorithm 1 Genetic Task Population Optimization (Single Step)
+1: Input: Image x, ground truth mask y, current population Pt(x)
+2: Evaluate fitness using DiceBCE between predicted and ground truth segmentation
+3: Select top-k candidates from Pt
+4: Generate new population by mutation and interpolation:
+t(g+1)
+j
+= αt(g)
+a
++ (1 −α)t(g)
+b
++ ϵ,
+ϵ ∼[−1, 1]
+5: Project task vectors onto unit sphere: t(g+1)
+j
+←t(g+1)
+j
+/∥t(g+1)
+j
+∥2
+6: Output: Optimized task vector Pt(x)∗
+3.4
+Alternating Genetic and Gradient-Based Optimization
+We use an alternating training scheme, combining gradient descent, optimized with Adam [12], and
+genetic optimization using the PyGAD library [5], to jointly optimize model parameters and task
+vectors. The process is described in Algorithm 2.
+Algorithm 2 Alternating Genetic and Gradient-Based Optimization
+1: Input: D = {(xi, yi, P(0)
+i
+)}n
+i=1, initial model parameters θ
+2: for epoch = 1 to N = 200 do
+3:
+if epoch <= 20 then
+4:
+Train model using gradient descent (fix task vector t)
+5:
+else if epoch = 21 then
+6:
+Initialize task vector t from task pool (sample and project onto unit sphere)
+7:
+Run genetic optimization: evaluate, generate offspring, and select best task vector
+8:
+else
+9:
+Continue gradient descent with updated task vector t
+10:
+if epoch % interval == 0 then
+11:
+Perform genetic optimization to refine t using Algorithm 1.
+12:
+end if
+13:
+Linearly increase genetic optimization interval (from 8 to 16 epochs)
+14:
+end if
+15: end for
+16: Output: Optimized model parameters θ and task vectors t
+3.5
+Two-stage training
+To improve training stability and prompt utilization, we adopt a two-stage training strategy. We
+observed that when both the task prompt t and the positional prompt p are introduced from the start,
+the model tends to ignore t, as it is initialized to zero and only gradually refined. This limits the
+amount of information that can be encoded in the task vector. Conversely, if p is added later, it is
+similarly neglected, since the model has already converged without relying on positional information.
+Instead, we first train the model using only t, allowing it to optimize a meaningful task embedding
+space via standard supervision L(fθ(x, t), y) (see Algorithm 2). After this phase, we reset the model
+weights θ, retain the learned task prompts t, and begin training with both t and p, this time keeping t
+fixed, hence repeating Algorithm 2 without the genetic optimization. This ensures the model learns
+to effectively leverage both prompts from the start, leading to more consistent convergence and better
+overall performance.
+4
+Experimental Setup and Results
+We evaluate Foundational-NCA on segmentation accuracy, generalization to unseen tasks, and the
+structure of its learned task space. Implemented in PyTorch [22], our experiments benchmark
+performance against state-of-the-art foundation models while highlighting the benefits of prompt-
+based control in a compact architecture.
+5
+
+
+4.1
+Datasets
+We evaluate our method on the TotalSegmentator dataset [31], which provides 1,228 CT scans with
+annotations for 117 anatomical structures. For training, we select 15 medium- to large-sized targets,
+including the gluteus maximus and medius (left and right), hips, kidneys, liver, sacrum, the right
+autochthon muscle, and lobes of the right and left lung. To assess generalization, we evaluate on six
+anatomies not seen during training: the left autochthon and iliopsoas muscles, left lower lung lobe,
+sternum, stomach, and urinary bladder. We exclude low-quality scans where masks extend beyond
+the field of view or which show severe scaling artifacts, and randomly select 100 patients for testing,
+5 for validation, and 300 slices per task of the remaining patients for training (in total 4500 slices).
+All 3D scans are processed as 2D axial slices resized to 164 × 164, with evaluation performed at the
+patient level across all slices. Slices lacking positional prompts are treated as empty predictions.
+Table 1: Dice accuracy comparison of Foundational-NCA against SAM, SAM2 and MedSAM on
+Task Set A (tasks seen during training) and Task Set B (unseen during training).
+Task Set A
+Foundational-NCA
+SAM
+SAM 2
+Med-SAM
+Seen
+211K param.
+93.7M param.
+38.9M param.
+93.7M param.
+Gluteus Max. L
+0.885 ± 0.077
+0.054 ± 0.014
+0.073 ± 0.019
+0.814 ± 0.057
+Gluteus Max. R
+0.874 ± 0.073
+0.076 ± 0.021
+0.075 ± 0.020
+0.796 ± 0.064
+Liver
+0.911 ± 0.105
+0.343 ± 0.076
+0.369 ± 0.092
+0.891 ± 0.068
+Lung Lower Lobe R
+0.832 ± 0.162
+0.638 ± 0.163
+0.552 ± 0.174
+0.809 ± 0.116
+Lung Middle Lobe R
+0.808 ± 0.114
+0.463 ± 0.125
+0.312 ± 0.109
+0.842 ± 0.080
+Lung Upper Lobe L
+0.870 ± 0.170
+0.559 ± 0.228
+0.457 ± 0.216
+0.866 ± 0.102
+Lung Upper Lobe R
+0.800 ± 0.271
+0.628 ± 0.225
+0.501 ± 0.210
+0.841 ± 0.202
+Autochthon R
+0.811 ± 0.060
+0.032 ± 0.010
+0.034 ± 0.010
+0.709 ± 0.033
+Kidney L
+0.840 ± 0.186
+0.425 ± 0.320
+0.404 ± 0.281
+0.798 ± 0.159
+Kidney R
+0.871 ± 0.153
+0.420 ± 0.296
+0.418 ± 0.273
+0.826 ± 0.071
+Sacrum
+0.758 ± 0.104
+0.237 ± 0.139
+0.159 ± 0.117
+0.600 ± 0.082
+Gluteus Medius L
+0.828 ± 0.124
+0.054 ± 0.014
+0.053 ± 0.014
+0.674 ± 0.102
+Gluteus Medius R
+0.840 ± 0.047
+0.049 ± 0.013
+0.046 ± 0.011
+0.709 ± 0.064
+Hip L
+0.863 ± 0.101
+0.440 ± 0.208
+0.357 ± 0.195
+0.593 ± 0.102
+Hip R
+0.887 ± 0.104
+0.449 ± 0.209
+0.345 ± 0.209
+0.596 ± 0.116
+Average
+0.845
+0.325
+0.277
+0.758
+Task Set B
+Foundational-NCA
+SAM
+SAM 2
+Med-SAM
+Unseen
+211K param.
+93.7M param.
+38.9M param.
+93.7M param.
+Autochthon L
+0.678 ± 0.159
+0.032 ± 0.010
+0.034 ± 0.011
+0.713 ± 0.032
+Iliopsoas L
+0.568 ± 0.174
+0.035 ± 0.050
+0.025 ± 0.018
+0.627 ± 0.150
+Lung Lower Lobe L
+0.730 ± 0.153
+0.570 ± 0.204
+0.546 ± 0.216
+0.791 ± 0.119
+Sternum
+0.661 ± 0.088
+0.191 ± 0.236
+0.039 ± 0.099
+0.685 ± 0.100
+Stomach
+0.492 ± 0.184
+0.126 ± 0.070
+0.152 ± 0.108
+0.785 ± 0.066
+Urinary Bladder
+0.497 ± 0.179
+0.132 ± 0.104
+0.151 ± 0.123
+0.803 ± 0.092
+Average
+0.604
+0.181
+0.158
+0.734
+4.2
+Quantitative Results
+Table 1 reports the Dice scores of Foundational-NCA compared to several foundation models,
+including SAM (Version B), SAM 2 (Version 2.1-T), and MedSAM, across both Task Set A (seen
+classes) and Task Set B (unseen classes). On Task Set A, Foundational-NCA achieves the highest
+average performance (0.845 Dice), outperforming all three foundation models, MedSAM (0.758 Dice)
+and SAM (0.325 Dice) and SAM 2 [25] (0.277) by a substantial margin. Despite being two to three
+orders of magnitude smaller in parameter count (211k vs. 93M), this demonstrates that task-specific
+supervision, even in compact architectures, can exceed the performance of large, general-purpose
+foundation models when applied to domain-specific data.
+6
+
+
+On Task Set B, which includes anatomies not used during training, Foundational-NCA generalizes
+reasonably well (average Dice: 0.604), substantially outperforming SAM (0.181 Dice) and SAM 2
+(0.158 Dice), but trailing MedSAM (0.734 Dice), which benefits from training on over 11 million
+images compared to just 4,500 slices for Foundational-NCA. For each unseen class, Foundational-
+NCA is evaluated five times using a different randomly selected validation patient to optimize
+the task prompt (takes 26.1 Minutes), ensuring a robust estimate of generalization. Given the
+parameter disparity, these results illustrate the efficiency of our architecture in achieving competitive
+generalization at a fraction of the parameter requirements. In particular, performance is strongest on
+structurally similar or overlapping anatomies (e.g., lungs, autochthon), but weaker on highly variable
+or deformable targets like the stomach or bladder, suggesting the limits of task adaptation when the
+latent space has not been exposed to sufficient anatomical diversity during training.
+Looking ahead, we anticipate that increasing task diversity by leveraging larger datasets with hundreds
+of anatomical structures will enrich the latent task representation. This would improve generalization,
+enabling the model to adapt more accurately to unseen tasks and approach full foundation-model
+performance with a fraction of the parameter budget.
+Figure 3: Exemplary segmentation results comparing Foundational-NCA with Med-SAM.
+4.3
+Qualitative Results
+The qualitative results in Figure 3 demonstrate Foundational-NCA’s strong performance on seen
+segmentation tasks. For tasks such as hippocampus left, Foundational-NCA accurately captures
+the target shape, and for the hip, it follows bone contours precisely. Despite being trained on a
+smaller dataset of 4,500 images compared to Med-SAM’s 11 million, Foundational-NCA still shows
+strong adaptability to unseen tasks. While it struggles with finer details, it effectively fills the target
+regions, and the general shape of the anatomical structures is well-preserved. This indicates that
+Foundational-NCA can successfully adapt to new tasks and generalize to previously unseen data.
+With more data and further training, Foundational-NCA has the potential to close the gap in detail
+and achieve similar performance across a wider range of tasks.
+4.4
+Ablation
+To assess the role of each component in Foundational-NCA, we perform an ablation study on the
+unseen task set (Table 2), evaluating variants without the task vector ("No Task") and without
+the positional prompt ("No Location"). Results for seen tasks are in the supplementary material.
+Removing the positional prompt causes a steep performance drop on unseen tasks (average Dice:
+0.070), indicating its essential role in spatial localization. Removing the task vector yields moderate
+degradation (Dice: 0.551), with especially large losses on anatomically variable structures like
+the stomach and bladder. Together, these results show that the positional prompt guides where to
+segment, while the task vector helps determine what to segment. Both are critical for enabling
+Foundational-NCA to generalize across tasks within such a compact architecture.
+7
+
+
+Table 2: Ablation study of Foundational-NCA on unseen tasks, evaluating the impact of removing
+the task vector and the positional prompt. Results for seen tasks are provided in the supplementary.
+Task Set A
+Foundational-NCA
+No Location
+No Task
+Average
+0.845
+0.753
+0.848
+Task Set B
+Foundational-NCA
+No Location
+No Task
+Autochthon L
+0.678 ± 0.159
+0.002 ± 0.012
+0.661 ± 0.148
+Iliopsoas L
+0.568 ± 0.174
+0.020 ± 0.041
+0.593 ± 0.141
+Lung Lower Lobe L
+0.730 ± 0.153
+0.299 ± 0.168
+0.746 ± 0.158
+Sternum
+0.661 ± 0.088
+0.018 ± 0.038
+0.645 ± 0.079
+Stomach
+0.492 ± 0.184
+0.019 ± 0.046
+0.392 ± 0.152
+Urinary Bladder
+0.497 ± 0.179
+0.036 ± 0.058
+0.271 ± 0.139
+Average
+0.604
+0.066
+0.551
+Figure 4: The four globes illustrate how automatically optimized task vectors align with the tasks
+they are intended to solve. Each globe presents the task sphere from a different viewing angle to
+highlight the spatial distribution of task representations.
+4.5
+Task Space Organisation
+Figure 4 shows how the task space of Foundational-NCA becomes organized through training,
+despite the model never receiving supervision about task identities. Instead, genetic optimization
+iteratively adjusts each task vector to maximize segmentation accuracy relative to the ground truth.
+For visualization, each learned task vector is colored according to the target anatomy it ultimately
+segments, although this label is never used during training. The result reveals distinct clustering in
+task space: anatomies with similar shape or location tend to occupy nearby regions. This emergent
+structure highlights the model’s ability to disentangle and organize tasks purely through the interplay
+of gradient descent and genetic optimization, even in the absence of explicit class information.
+Figure 5: Interpolation between task vectors on the spherical task space. In both liver-to-kidney and
+kidney-to-lung transitions, the model gradually morphs the predicted segmentation shape to match
+the evolving task prompt while adapting it to the fixed anatomical position.
+8
+
+
+Figure 6: Grid of predictions generated by applying a fixed input image to a 6×6 grid of task vectors
+sampled uniformly from the spherical task space. Each output is colored according to the closest
+training class, revealing how different regions of the task space influence the segmentation behavior.
+4.6
+Task Vector Interpolation
+To illustrate how the task vector influences segmentation, we interpolate between task vectors while
+keeping the input image and positional prompt fixed (Figure 5). Interpolating from liver →kidney,
+we observe the model initially producing no segmentation in non-liver regions. As the task vector
+moves toward the kidney representation, the model gradually segments kidney-like structures aligned
+to the spatial context. Further interpolation from kidney →lung lower lobe shows intermediate
+states where the entire lung region is briefly highlighted before refining specifically to the lower lobe.
+To validate these dynamics, we sample task vectors uniformly from the unit sphere and visualize
+predictions on a fixed input image (Figure 6). Each sampled vector is colored according to its
+nearest training class mean in task space, demonstrating distinct segmentation behaviors across
+different regions. These transitions confirm that task vectors continuously guide predictions, encoding
+high-level shape and location priors that modulate segmentation dynamics.
+4.7
+Limitations
+While Foundational-NCA achieves strong performance on seen tasks, its generalization to unseen
+targets remains below that of much larger specialized medical foundation models, partly due to the
+limited training data, just 4,500 slices across 15 tasks, compared to 11 million images used for training
+SAM. Training is also compute-intensive, requiring 93 hours in total (on an RTX 4090 GPU and
+AMD Ryzen 5700G CPU). A significant portion of this time stems from genetic optimization, with
+each round taking approximately 195 minutes. Currently, genetic and gradient-based optimization
+are performed in separate passes. In future work, unifying these passes could reduce training time
+and improve generalization, particularly when scaling to larger datasets.
+5
+Conclusion
+This study demonstrates that foundation-model-like generalization can be achieved within the highly
+efficient framework of Neural Cellular Automata, paving the way for adaptive yet radically compact
+medical AI systems. By integrating gradient-based training with a novel genetic optimization strategy
+to evolve latent task representations, we show that multi-task medical segmentation is feasible using
+only 211K parameters, orders of magnitude fewer than traditional foundation models. Evaluated
+on 15 trained and 6 unseen segmentation tasks, Foundational-NCA achieves an average Dice of
+84.5% on seen and 60.4% on unseen targets, demonstrating meaningful task adaptation without
+retraining model weights. These results highlight a new class of compact, prompt-driven segmentation
+models suitable for deployment in real-world, low-resource healthcare environments. By decoupling
+segmentation capabilities from parameter count and computational complexity, Foundational-NCA
+lays the groundwork for accessible, reusable, and extensible medical AI. Rather than pursuing
+incremental performance with ever-larger models, we propose a shift toward compact, task-adaptive
+systems. This points toward a future where medical AI is defined not by infrastructure or cost, but by
+efficiency, flexibility, and universal accessibility.
+9
+
+
+References
+[1] Taiwo Samuel Ajani, Agbotiname Lucky Imoize, and Aderemi A Atayero. An overview of
+machine learning within embedded and mobile devices–optimizations and applications. Sensors,
+21(13):4412, 2021.
+[2] Michael Deutges, Ario Sadafi, Nassir Navab, and Carsten Marr. Neural cellular automata for
+lightweight, robust and explainable classification of white blood cell images. In International
+Conference on Medical Image Computing and Computer-Assisted Intervention, pages 693–702.
+Springer, 2024.
+[3] Agoston E Eiben and James E Smith. Introduction to evolutionary computing. Springer, 2015.
+[4] Guy Frija, Ivana Blaži´c, Donald P Frush, Monika Hierath, Michael Kawooya, Lluis Donoso-
+Bach, and Boris Brkljaˇci´c. How to improve access to medical imaging in low-and middle-income
+countries? EClinicalMedicine, 38, 2021.
+[5] Ahmed Fawzy Gad. Pygad: An intuitive genetic algorithm python library. Multimedia tools
+and applications, 83(20):58029–58042, 2024.
+[6] William Gilpin. Cellular automata as convolutional neural networks. Physical Review E, 100
+(3):032402, 2019.
+[7] Jonathan Guo and Bin Li. The application of medical artificial intelligence technology in rural
+areas of developing countries. Health equity, 2(1):174–181, 2018.
+[8] John Kalkhof, Camila González, and Anirban Mukhopadhyay. Med-nca: Robust and lightweight
+segmentation with neural cellular automata.
+In International Conference on Information
+Processing in Medical Imaging, pages 705–716. Springer, 2023.
+[9] John Kalkhof, Amin Ranem, and Anirban Mukhopadhyay. Unsupervised training of neural
+cellular automata on edge devices. In International Conference on Medical Image Computing
+and Computer-Assisted Intervention, pages 498–507. Springer, 2024.
+[10] John Kalkhof, Niklas Ihm, Tim Köhler, Bjarne Gregori, and Anirban Mukhopadhyay. Med-nca:
+Bio-inspired medical image segmentation. Medical Image Analysis, page 103601, 2025.
+[11] John Kalkhof, Arlene Kühn, Yannik Frisch, and Anirban Mukhopadhyay. Parameter-efficient
+diffusion with neural cellular automata. npj Unconventional Computing, 2(1):1–9, 2025.
+[12] Diederik P Kingma.
+Adam:
+A method for stochastic optimization.
+arXiv preprint
+arXiv:1412.6980, 2014.
+[13] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson,
+Tete Xiao, Spencer Whitehead, Alexander C Berg, Wan-Yen Lo, et al. Segment anything. In
+Proceedings of the IEEE/CVF international conference on computer vision, pages 4015–4026,
+2023.
+[14] Tyler J Loftus, Matthew M Ruppert, Benjamin Shickel, Tezcan Ozrazgat-Baslanti, Jeremy A
+Balch, Philip A Efron, Gilbert R Upchurch Jr, Parisa Rashidi, Christopher Tignanelli, Jiang
+Bian, et al. Federated learning for preserving data privacy in collaborative healthcare research.
+Digital Health, 8:20552076221134455, 2022.
+[15] Jun Ma, Yuting He, Feifei Li, Lin Han, Chenyu You, and Bo Wang. Segment anything in
+medical images. Nature Communications, 15(1):654, 2024.
+[16] Judith McCool, Rosie Dobson, Robyn Whittaker, and Chris Paton. Mobile health (mhealth) in
+low-and middle-income countries. Annual Review of Public Health, 43:525–539, 2022.
+[17] Melanie Mitchell. An introduction to genetic algorithms. MIT press, 1998.
+[18] Daniel J Mollura, Melissa P Culp, Erica Pollack, Gillian Battino, John R Scheel, Victoria L
+Mango, Ameena Elahi, Alan Schweitzer, and Farouk Dako. Artificial intelligence in low-and
+middle-income countries: innovating global health radiology. Radiology, 297(3):513–520,
+2020.
+[19] Alexander Mordvintsev and Eyvind Niklasson. mu-nca: Texture generation with ultra-compact
+neural cellular automata. arXiv preprint arXiv:2111.13545, 2021.
+[20] Alexander Mordvintsev, Ettore Randazzo, Eyvind Niklasson, and Michael Levin. Growing
+neural cellular automata. Distill, 5(2):e23, 2020.
+10
+
+
+[21] World Health Organization. Tracking universal health coverage: 2023 global monitoring report.
+World Health Organization, 2023.
+[22] A Paszke. Pytorch: An imperative style, high-performance deep learning library. arXiv preprint
+arXiv:1912.01703, 2019.
+[23] Amin Ranem, John Kalkhof, and Anirban Mukhopadhyay. Nca-morph: Medical image registra-
+tion with neural cellular automata. arXiv preprint arXiv:2410.22265, 2024.
+[24] Amin Ranem, John Kalkhof, and Anirban Mukhopadhyay. Ncadapt: Dynamic adaptation with
+domain-specific neural cellular automata for continual hippocampus segmentation. In 2025
+IEEE/CVF Winter Conference on Applications of Computer Vision (WACV), pages 3834–3843.
+IEEE, 2025.
+[25] Nikhila Ravi, Valentin Gabeur, Yuan-Ting Hu, Ronghang Hu, Chaitanya Ryali, Tengyu Ma,
+Haitham Khedr, Roman Rädle, Chloe Rolland, Laura Gustafson, Eric Mintun, Junting Pan,
+Kalyan Vasudev Alwala, Nicolas Carion, Chao-Yuan Wu, Ross Girshick, Piotr Dollár, and
+Christoph Feichtenhofer. Sam 2: Segment anything in images and videos. arXiv preprint
+arXiv:2408.00714, 2024. URL https://arxiv.org/abs/2408.00714.
+[26] Zofia Rudnicka, Janusz Szczepanski, and Agnieszka Pregowska. Artificial intelligence-based
+algorithms in medical image scan segmentation and intelligent visual content generation—a
+concise overview. Electronics, 13(4):746, 2024.
+[27] Jeffrey R Sampson. Adaptation in natural and artificial systems (john h. holland), 1976.
+[28] Zhen Ling Teo, Liyuan Jin, Nan Liu, Siqi Li, Di Miao, Xiaoman Zhang, Wei Yan Ng, Ting Fang
+Tan, Deborah Meixuan Lee, Kai Jie Chua, et al. Federated machine learning in healthcare: A
+systematic review on clinical applications and technical architecture. Cell Reports Medicine, 5
+(2), 2024.
+[29] Anja Thieme, Aditya Nori, Marzyeh Ghassemi, Rishi Bommasani, Tariq Osman Andersen,
+and Ewa Luger. Foundation models in healthcare: Opportunities, risks & strategies forward.
+In Extended Abstracts of the 2023 CHI Conference on Human Factors in Computing Systems,
+pages 1–4, 2023.
+[30] John Von Neumann and Arthur Walter Burks. Theory of self-reproducing automata. 1966.
+[31] Jakob Wasserthal, Hanns-Christian Breit, Manfred T Meyer, Maurice Pradella, Daniel Hinck,
+Alexander W Sauter, Tobias Heye, Daniel T Boll, Joshy Cyriac, Shan Yang, et al. Totalseg-
+mentator: robust segmentation of 104 anatomic structures in ct images. Radiology: Artificial
+Intelligence, 5(5):e230024, 2023.
+[32] Wenjian Yao, Jiajun Bai, Wei Liao, Yuheng Chen, Mengjuan Liu, and Yao Xie. From cnn to
+transformer: A review of medical image segmentation models. Journal of Imaging Informatics
+in Medicine, 37(4):1529–1547, 2024.
+A
+Implementation Details
+This section outlines key aspects of the genetic optimization (GO) setup and training procedures
+used in Foundational-NCA. All models are implemented in PyTorch, and genetic optimization is
+performed using a modified version of the pygad library, extended to support multiprocessing.
+A.1
+Genetic Optimization During Training
+Genetic optimization is employed only during the first stage of training, starting from epoch 20 and
+continuing through epoch 200.
+GA Schedule and Parameters
+• Task vector dimension: 3
+• Population size: 20
+• Initialization: Uniformly sampled from [−1, 1]3, projected onto the unit sphere
+• Gene bounds: [−1, 1] (enforced via normalization)
+11
+
+
+• Update interval: Every 8 epochs, linearly increased to every 16
+• Generations per GA step: 1 (evaluate, generate offspring, evaluate, select best)
+At each genetic step, 19 offspring are generated while the top candidate from the previous generation
+is retained. Fitness values are not cached between epochs, as the model evolves and caching would
+degrade performance.
+Selection, Crossover, and Mutation
+• Selection: Tournament selection with k = 3, repeated n = 10 times
+• Crossover: Uniform crossover—each gene in the child is selected from one of two parents
+at random
+• Mutation: Each gene is mutated with probability 0.1; mutation adds a random value from
+[−1, 1]
+• Normalization: All offspring are projected back onto the unit sphere after mutation
+Fitness Function
+During training, the inverse of the DiceBCE loss is used as the fitness value.
+DiceBCE is also used to train the NCA weights via gradient descent.
+A.2
+Global Task Vector Optimization
+We also optimize global task vectors for each class in two separate settings:
+Training Tasks
+• 20 epochs of GO
+• Population size: 20
+• Initialization: Class mean + noise in [−0.1, 0.1], clipped and normalized
+• Fitness: Discrete Dice score
+Find Task Vector of Unknown Task
+• 30 epochs of GO
+• Population size: 40
+• Initialization: same as for training tasks
+• Fitness: Discrete Dice score
+A.3
+Model Training Setup
+We train Foundational-NCA using the Adam optimizer with a learning rate of 1.6 × 10−4 and β
+parameters set to (0.5, 0.5). An exponential learning rate scheduler with a decay rate of γ = 0.9999
+is used throughout training.
+Training is conducted in two phases: an initial phase of 200 epochs with alternating genetic optimiza-
+tion, followed by a second phase of 300 epochs using fixed task vectors. We use a batch size of 30
+and a cell fire rate of 0.2, meaning 80% of cells are updated at each NCA step.
+The architecture is implemented in PyTorch, and we detail the exact model structure in Figure A.2.
+Initialization follows PyTorch defaults, except for two modifications: the input layer (fc0) is
+initialized using Xavier initialization, and the skip-connection layer (fc1) is initialized with a
+constant value of 0.001.
+A.4
+Hardware and System Setup
+All final experiments were conducted on a workstation with the following Hardware:
+• CPU: AMD Ryzen 7 5700G
+12
+
+
+Model Architecture: Foundational-NCA
+Foundational −NCA(
+( backbone_lowres ) :
+Backbone_Lowres (
+( p0 ) :
+Conv2d (48 ,
+48 ,
+k e r n e l _ s i z e =(3 ,
+3) ,
+s t r i d e =(1 ,
+1) ,
+padding =(1 ,
+1) ,
+padding_mode= r e f l e c t )
+( fc0 ) :
+Linear ( i n _ f e a t u r e s =96 ,
+o u t _ f e a t u r e s =192 ,
+b i a s =True )
+( fc1 ) :
+Linear ( i n _ f e a t u r e s =192 ,
+o u t _ f e a t u r e s =48 ,
+b i a s = False )
+( c o n d i t i o n i n g _ a f t e r _ p 0 ) :
+S e q u e n t i a l (
+( 0 ) :
+Conv2d (3 ,
+192 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+( 1 ) :
+SiLU ( )
+( 2 ) :
+Conv2d (192 ,
+96 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+)
+( c o n d i t i o n i n g _ a f t e r _ f c 0 ) :
+S e q u e n t i a l (
+( 0 ) :
+Conv2d (3 ,
+192 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+( 1 ) :
+SiLU ( )
+( 2 ) :
+Conv2d (192 ,
+192 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+)
+)
+( backbone_highres ) :
+Backbone_Highres (
+( p0 ) :
+Conv2d (48 ,
+48 ,
+k e r n e l _ s i z e =(3 ,
+3) ,
+s t r i d e =(1 ,
+1) ,
+padding =(1 ,
+1) ,
+padding_mode= r e f l e c t )
+( fc0 ) :
+Linear ( i n _ f e a t u r e s =96 ,
+o u t _ f e a t u r e s =192 ,
+b i a s =True )
+( fc1 ) :
+Linear ( i n _ f e a t u r e s =192 ,
+o u t _ f e a t u r e s =48 ,
+b i a s = False )
+( c o n d i t i o n i n g _ a f t e r _ p 0 ) :
+S e q u e n t i a l (
+( 0 ) :
+Conv2d (3 ,
+192 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+( 1 ) :
+SiLU ( )
+( 2 ) :
+Conv2d (192 ,
+96 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+)
+( c o n d i t i o n i n g _ a f t e r _ f c 0 ) :
+S e q u e n t i a l (
+( 0 ) :
+Conv2d (3 ,
+192 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+( 1 ) :
+SiLU ( )
+( 2 ) :
+Conv2d (192 ,
+192 ,
+k e r n e l _ s i z e =(1 ,
+1) ,
+s t r i d e =(1 ,
+1 ) )
+)
+)
+)
+Figure 7: Detailed PyTorch model configuration used for Foundational-NCA.
+• RAM: 60 GB
+• GPU: NVIDIA RTX 4090 with 24 GB VRAM
+• Operating System: Ubuntu 22.04.5 LTS
+This setup was used for both model training and genetic optimization.
+B
+Training Trajectory
+To better understand how Foundational-NCA evolves during training, we examine the optimization
+trajectory in more detail.
+In Figure 9, we observe several phases of convergence throughout training. Notably, each round of
+genetic optimization leads to a distinct improvement in the loss, especially during the early epochs
+(e.g., around epoch 20) when the task space is still poorly structured. These early improvements
+highlight the importance of cold-start optimization in guiding the model toward more effective task
+representations.
+13
+
+
+Figure 8: The mean task vector history shows early separation between tasks, which becomes
+increasingly refined with additional genetic optimization steps.
+Figure 9: Loss trajectory of Foundational-NCA. Clear improvements are observed following each
+genetic optimization step, especially during early training phases.
+Figure 8 further illustrates how the task space develops over time. Even in early stages, Foundational-
+NCA begins to separate tasks into distinct regions on the unit sphere. Subsequent genetic updates
+primarily refine these groupings, though some tasks, such as Autochthon Right, undergo more
+significant adjustments. The figure shows median task vectors per class, projected onto the unit
+sphere for visualization.
+Finally, Figure 10 visualizes the per-class evolution of task vectors across training epochs. While
+most tasks exhibit stable convergence, others like Kidney Right show continued variation later in
+training, suggesting greater difficulty in anchoring those representations. In contrast, anatomies such
+as Hip Right demonstrate consistent early convergence. Importantly, this class-wise separation is
+used purely for analysis—Foundational-NCA itself operates without access to class labels and must
+independently organize task representations based on supervision alone.
+C
+Extended Ablation Study
+Due to space constraints in the main manuscript, we present here the full results of our ablation study
+evaluating the contributions of the positional and task prompts, as well as the impact of the training
+strategy. Table 3 provides detailed scores for both Task Set A and Task Set B across the complete set
+of conditions.
+14
+
+
+Figure 10: Genetic optimization trajectories for each label show consistent convergence toward an
+optimum, with some fluctuations remaining for more challenging segmentation targets.
+Single-Stage Setup:
+Beyond removing prompts individually, we investigate the effect of switching
+from our proposed two-stage training scheme to a simpler single-stage alternative. In the standard
+two-stage setup, we initially train with task prompts only, introducing positional prompts in the
+second stage to ensure both types of conditioning are fully utilized. In the single-stage baseline, both
+prompts are introduced at epoch 20.
+Quantitatively, we observe that this joint conditioning from the start results in notably worse gener-
+alization on unseen tasks (Task Set B), with the average Dice score dropping from 0.604 to 0.572.
+Although performance on seen tasks (Task Set A) is comparable, the degraded generalization suggests
+that the task space becomes less structured when both prompts are introduced simultaneously.
+Meaningful Task Separation:
+This intuition is confirmed visually in Figure 11, where the task
+vectors learned under the single-stage setup show no meaningful separation or organization on the
+unit sphere. In contrast, the two-stage strategy encourages the formation of a structured, disentangled
+task space, which is critical for generalization.
+Further evidence is provided in Figure 12, which compares the UMAP projections of task vectors
+under both training strategies. The two-stage setup yields clearly clustered and well-separated task
+representations, while the single-stage approach results in overlapping and less distinguishable task
+15
+
+
+regions, supporting our conclusion that careful prompt scheduling is crucial for robust, multi-task
+generalization.
+Table 3: Full Table of Ablation study of Foundational-NCA on unseen tasks, evaluating the impact of
+removing the task vector and the positional prompt
+Task Set A
+Foundational-NCA
+No Location
+No Task
+Single Stage
+Gluteus Max. L
+0.885 ± 0.077
+0.867 ± 0.114
+0.879 ± 0.085
+0.879 ± 0.090
+Gluteus Max. R
+0.874 ± 0.073
+0.807 ± 0.131
+0.876 ± 0.089
+0.877 ± 0.098
+Liver
+0.911 ± 0.105
+0.874 ± 0.170
+0.892 ± 0.116
+0.904 ± 0.122
+Lung Lower Lobe R
+0.832 ± 0.162
+0.763 ± 0.188
+0.886 ± 0.139
+0.813 ± 0.173
+Lung Middle Lobe R
+0.808 ± 0.114
+0.736 ± 0.143
+0.837 ± 0.084
+0.825 ± 0.106
+Lung Upper Lobe L
+0.870 ± 0.170
+0.786 ± 0.205
+0.887 ± 0.156
+0.841 ± 0.186
+Lung Upper Lobe R
+0.800 ± 0.271
+0.732 ± 0.266
+0.854 ± 0.225
+0.806 ± 0.267
+Autochthon R
+0.811 ± 0.060
+0.681 ± 0.146
+0.804 ± 0.067
+0.814 ± 0.063
+Kidney L
+0.840 ± 0.186
+0.706 ± 0.299
+0.858 ± 0.168
+0.854 ± 0.178
+Kidney R
+0.871 ± 0.153
+0.651 ± 0.291
+0.847 ± 0.146
+0.875 ± 0.140
+Sacrum
+0.758 ± 0.104
+0.691 ± 0.138
+0.719 ± 0.105
+0.695 ± 0.111
+Gluteus Medius L
+0.828 ± 0.124
+0.819 ± 0.139
+0.804 ± 0.118
+0.788 ± 0.112
+Gluteus Medius R
+0.840 ± 0.047
+0.780 ± 0.124
+0.815 ± 0.102
+0.821 ± 0.083
+Hip L
+0.863 ± 0.101
+0.665 ± 0.136
+0.876 ± 0.102
+0.881 ± 0.101
+Hip R
+0.887 ± 0.104
+0.735 ± 0.135
+0.881 ± 0.103
+0.895 ± 0.102
+Average
+0.845
+0.753
+0.848
+0.838
+Task Set B
+Foundational-NCA
+No Location
+No Task
+Single Stage
+Autochthon L
+0.678 ± 0.159
+0.002 ± 0.012
+0.661 ± 0.148
+0.624 ± 0.169
+Iliopsoas L
+0.568 ± 0.174
+0.020 ± 0.041
+0.593 ± 0.141
+0.536 ± 0.172
+Lung Lower Lobe L
+0.730 ± 0.153
+0.299 ± 0.168
+0.746 ± 0.158
+0.749 ± 0.158
+Sternum
+0.661 ± 0.088
+0.018 ± 0.038
+0.645 ± 0.079
+0.705 ± 0.065
+Stomach
+0.492 ± 0.184
+0.019 ± 0.046
+0.392 ± 0.152
+0.394 ± 0.177
+Urinary Bladder
+0.497 ± 0.179
+0.036 ± 0.058
+0.271 ± 0.139
+0.423 ± 0.160
+Average
+0.604
+0.066
+0.551
+0.572
+Figure 11: Task space visualization for the single-stage setup shows that introducing location and
+task information simultaneously leads to a disorganized and unstructured task representation.
+D
+Additional Baselines of SAM-H and SAM2.1-L
+To complement our main comparisons, we additionally evaluate two high-parameter SAM variants:
+SAM-H (641M parameters) and SAM2.1-L (224M parameters). As shown in Table 4, both models
+perform similarly to their smaller counterparts, achieving average Dice scores of 0.289 and 0.305
+on Task Set A, and 0.173 and 0.175 on Task Set B, respectively. These results suggest that sim-
+16
+
+
+Figure 12: UMAP projection comparing single- and two-stage training. The two-stage setup leads to
+a more organized and interpretable task space, confirming earlier observations.
+ply increasing model size does not yield significant improvements in medical segmentation tasks,
+highlighting the efficiency of compact, task-adaptive alternatives such as Foundational-NCA.
+E
+Additional Qualitative Results
+Task Vector Interpolations:
+To further explore the influence of the task prompt on the model’s
+predictions, we visualize interpolations from a single starting task vector to four distinct target vectors
+in Figure 13. This illustrates how the segmentation output evolves as the task embedding changes.
+For example, starting from the vector for Lung Middle Lobe R, we observe distinct and substantial
+changes when interpolating toward Autochthon R and Lung Upper Lobe R, highlighting the model’s
+sensitivity to semantic shifts in task space. A similar pattern emerges when starting from Gluteus
+Medius L, in this case, interpolation toward Hip R even causes the model to segment the anatomically
+opposite side, demonstrating how certain transitions in task space can induce asymmetric responses.
+Sampling from the Unit Sphere:
+We extend the task vector sampling experiment introduced
+in the main manuscript. In Figure 15, we sample task vectors uniformly from the unit sphere and
+visualize their corresponding outputs on two distinct images in the color of the closest average training
+anatomy. This larger-scale evaluation reveals a wide range of segmentation behaviors depending on
+the location in the task space. Importantly, we find that the positional prompt also plays a key role: in
+Sample 1 (left), where the positional prompt anchors the expected location of the anatomy, the model
+produces more consistent predictions across task vectors. In contrast, Sample 2 (right), exhibits more
+pronounced variability depending on the task vector, emphasizing the interplay between task and
+spatial conditioning.
+Additional Qualitative Results:
+Finally, we provide an extended set of qualitative results in
+Figure 15, covering all 15 training tasks and 6 unseen tasks. On the seen tasks, Foundational-
+NCA demonstrates robust segmentation performance, often capturing fine anatomical details and
+accommodating large structural variation, for instance, the liver’s varying morphology. For unseen
+tasks, performance varies depending on how well the new class is represented in the learned task
+space. While certain classes like Hip R are segmented with high fidelity, others such as Lung Lower
+Lobe L show inconsistencies, especially in more complex regions. These findings underscore the
+model’s capacity for generalization, while also highlighting the challenges posed by underrepresented
+or highly variable anatomies. This limitation is likely exacerbated by the relatively small training
+17
+
+
+Table 4: Additional Baseline results of the high parameter variants of SAM and SAM2.
+Task Set A
+SAM-H
+SAM2.1-L
+Parameters
+641.1M
+224.4M
+Gluteus Max. L
+0.076 ± 0.020
+0.074 ± 0.021
+Gluteus Max. R
+0.074 ± 0.019
+0.077 ± 0.022
+Liver
+0.367 ± 0.089
+0.443 ± 0.124
+Lung Lower Lobe R
+0.583 ± 0.176
+0.532 ± 0.171
+Lung Middle Lobe R
+0.349 ± 0.122
+0.305 ± 0.106
+Lung Upper Lobe L
+0.497 ± 0.223
+0.398 ± 0.197
+Lung Upper Lobe R
+0.535 ± 0.215
+0.495 ± 0.204
+Autochthon R
+0.031 ± 0.010
+0.036 ± 0.011
+Kidney L
+0.389 ± 0.278
+0.553 ± 0.301
+Kidney R
+0.401 ± 0.268
+0.562 ± 0.295
+Sacrum
+0.187 ± 0.109
+0.199 ± 0.134
+Gluteus Medius L
+0.052 ± 0.014
+0.062 ± 0.084
+Gluteus Medius R
+0.048 ± 0.011
+0.051 ± 0.034
+Hip L
+0.349 ± 0.180
+0.402 ± 0.192
+Hip R
+0.397 ± 0.189
+0.391 ± 0.197
+Average
+0.289
+0.305
+Task Set B
+SAM-H
+SAM2.1-L
+Parameters
+641.1M
+224.4M
+Autochthon L
+0.031 ± 0.010
+0.036 ± 0.012
+Iliopsoas L
+0.027 ± 0.017
+0.028 ± 0.020
+Lung Lower Lobe L
+0.531 ± 0.204
+0.461 ± 0.206
+Sternum
+0.178 ± 0.207
+0.135 ± 0.183
+Stomach
+0.126 ± 0.067
+0.193 ± 0.135
+Urinary Bladder
+0.141 ± 0.114
+0.198 ± 0.150
+Average
+0.173
+0.175
+set of 4,500 annotated slices across 15 tasks. In future work, increasing the number and diversity of
+training samples, particularly for anatomically complex or rare structures, could substantially enrich
+the learned task space, leading to more robust adaptation and improved segmentation accuracy across
+a broader range of unseen targets.
+18
+
+
+Figure 13: Additional task vector interpolations further confirm that the model adapts the segmentation
+to fit the task prompt as well as possible within the spatial constraints given by the positional prompt.
+19
+
+
+Figure 14: Evenly sampled task prompts from the unit sphere, applied to two input images with corresponding positional prompts. Each output is labeled according
+to the closest mean class in the task space.
+20
+
+
+Figure 15: Qualitative results for all 15 training tasks (Task Set A) and 6 unseen tasks (Task Set B). Green: ground truth, Red: prediction, Yellow: overlap.
+21

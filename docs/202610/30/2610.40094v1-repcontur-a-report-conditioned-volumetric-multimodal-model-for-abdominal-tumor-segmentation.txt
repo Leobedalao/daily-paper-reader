@@ -1,0 +1,468 @@
+Title: RepConTUR: A Report-Conditioned Volumetric Multimodal Model for Abdominal Tumor Segmentation
+
+URL Source: https://arxiv.org/pdf/2610.40094v1
+
+Published Time: Fri, 30 Oct 2026 04:04:38 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# RepConTUR: A Report-Conditioned Volumetric Multimodal Model for Abdominal Tumor Segmentation 
+
+## Seunghwan Lee 1 Sangjoon Park 2 Jongmin Lee 1 Yoon Jo Kim 1
+
+## Wonyoung Cho 1 Jin Sung Kim 1,2 Han Joo Chae 1,*
+
+> 1
+
+## Oncosoft Inc., Seoul, South Korea 
+
+> 2
+
+## Department of Radiation Oncology, Yonsei University College of Medicine, Seoul, South Korea 
+
+## Abstract 
+
+Tumor delineation is required for radiotherapy planning, yet automatic segmentation is limited by errors, predomi-nantly false positives, that distort dose and increase edit-ing time. The radiology report accompanies the scan and localizes disease at the suborgan level, but exist-ing text-promptable models condition on short referring phrases, and most operate in 2D. We present RepCon-TUR, a single native-3D early-fusion multimodal model that conditions volumetric abdominal tumor segmentation on the narrative report. We extend AbdomenAtlas 3.0 to a suborgan-level promptable segmentation dataset and gen-erate report-based VQA pairs, yielding four report-derived tasks on the same annotations: referring segmentation (RES), report-grounded segmentation (GSEG), report gen-eration (RRG), and visual question answering (VQA). We train RepConTUR, comprising a 3D CT encoder, an early-fusion language model, and a native-3D segmentation mod-ule, jointly on the four tasks. Across liver, kidney and pan-creas, RepConTUR attains the highest Dice similarity co-efficient (DSC), instance-wise precision, and detection F1 among the text-promptable baselines, and adding the re-port raises mean precision while leaving recall compara-ble. Against two vision-only specialists, nnU-Net and the report-supervised R-Super, RepConTUR attains the highest value on every in-domain metric for liver and pancreas and the highest mean DSC, recall, precision, and detection F1 over the four out-of-distribution public cohorts. Ablations indicate that conditioning on the narrative report raises de-tection F1 from 0.499 to 0.528 within the same model, that joint GSEG training raises RES F1 from 0.450 to 0.482, and that the native-3D segmentation module raises GSEG F1 from 0.139 to 0.528 over its 2D counterpart. Code is available at github.com/Oncosoft-Research/RepConTUR. 
+
+> *Corresponding author.
+
+## 1. Introduction 
+
+Tumor delineation is a required step in radiotherapy plan-ning, but manual contouring is labor-intensive and shows large inter-observer variability [21, 52, 58]. Unlike diagnos-tic reading, radiotherapy target contouring routinely com-bines the diagnostic scan with its radiology report, as the report contains rich information about the tumor, including its anatomical location, size and stage [1, 7, 20, 29]. This makes the report a natural conditioning signal for automatic tumor segmentation. Vision-only deep learning models remain the standard approach to tumor segmentation, and their accuracy is re-ported mainly by the volumetric Dice similarity coefficient (DSC), which underrepresents instance-wise recall and pre-cision [37]. On the LiTS liver-tumor benchmark, the top method reports a tumor Dice of 0.702 , yet its instance-wise precision is only 0.148 [6]. In radiotherapy, instance-wise recall and precision are as clinically important as DSC. False positives in particular distort the dose distribu-tion and raise normal-tissue exposure and toxicity risk [44], and these errors increase the editing time [57]. A sepa-rate line of work uses the radiology report as training-time supervision to improve tumor detection and segmentation. Report-derived tumor count and size penalize inconsistent predictions through auxiliary losses [3], reported location provides weak labels [23], and the report yields pseudo-labels [9]. However, these models still segment from the image alone at inference time [64], so the report cannot di-rectly inform the prediction. Text-guided segmentation models have achieved strong results on referring segmentation (RES) and grounded seg-mentation (GSEG) [31, 33, 45, 63, 76]. Some works adopt a dual-encoder design that encodes the language prompt and the image in separate branches and fuses them at the de-coder [47, 70]. On the other hand, multimodal large lan-guage model (MLLM)-based segmentation models fuse im-age and text early and reason over both jointly within the 1arXiv:2610.40094v1 [cs.CV] 29 Oct 2026 language model [31, 61]. Yet both are designed for short target descriptions — class names or referring phrases — and do not exploit long-form textual context. BiomedParse v2, for example, conditions on an organ-level prompt (e.g., “tumor in liver CT”), which cannot indicate a detailed intra-organ region and may not capture suborgan-level informa-tion [70, 71]. A report instead specifies suborgan location, which may help suppress false positives elsewhere in the same organ [17, 18]. Furthermore, existing MLLM-based medical segmentation models are also mostly 2D [61], lim-iting their abilities to interpret report information that refers to 3D context [11, 30, 38]. Multitask learning can improve a target task when the tasks are related, although the gain depends on task affin-ity [10, 50, 55]. Unified vision–language models train local-ization and language tasks in one network [59, 68], and an MLLM-based segmentation model is a natural fit for such joint training. In the medical domain, UniBioMed trains segmentation jointly with VQA and report generation and reports improved segmentation Dice [61]. The report can therefore also serve as a joint-training signal. We propose RepConTUR, an MLLM-based 3D report-conditioned tumor segmentation model that grounds seg-mentation on the report to improve both segmentation accu-racy and instance-wise detection (Fig. 1). Our contributions are threefold: • Report-conditioned segmentation. We condition seg-mentation on a suborgan-level referring phrase and an op-tional free-form narrative report, rather than a short class name alone. To the best of our knowledge, RepConTUR is the first 3D referring/grounded segmentation model to condition on such report context. We introduce suborgan-level mask and prompt design aligned to narrative free-form radiology reports, and implement it for abdominal tumors. • A native 3D MLLM for report-conditioned abdominal tumor segmentation. We build on prior MLLM archi-tectures and extend them with native-3D vision modules. The MLLM vision encoder and segmentation module are all 3D, and visual tokens are processed jointly with the report text from the first LLM layer, so vision and text are reasoned over jointly. • Report-derived multitask dataset and multitask learn-ing. From AbdomenAtlas 3.0 [4] tumor masks and their reports we construct a unified four-task dataset. Report-matched suborgan localization produces the RES and GSEG targets, and the report is converted into radiology report generation (RRG) supervision and LLM-verified VQA pairs. We jointly train all four tasks on a single backbone. Cumulative task ablations show that report-grounded segmentation training improves RES perfor-mance, while adding report generation and VQA further increases detection F1. 
+
+## 2. Related work 
+
+2.1. Reports and tumor segmentation 
+
+One line of work uses the report as a training signal. R-Super converts report-derived tumor count and size into voxel-wise losses [3], Guo et al . use report text as weak supervision to improve detection [23], Bosma et al . derive pseudo-labels from the report [9], and SGSeg uses text only during training and drops it at inference [64]. These methods all use the report only at training time. In contrast, we condition 3D tumor segmentation on the narra-tive report at inference. 
+
+2.2. Text-promptable medical segmentation 
+
+These methods share a common pipeline. A separate text encoder maps a short query to an embedding that is fused with vision features, usually late at the decoder, to produce a text-conditioned mask. The two families differ only in the query. Open-vocabulary methods use a class name or anatomical term as the query (SegVol [19], SAT [72], CLIP-Universal [36], BiomedParse v2 [70, 71]), while a parallel line uses a referring or descriptive phrase (LViT [35], Ari-adne’s Thread [73], RecLMIS [27], CausalCLIPSeg [15], LSMS [43], VoxTell [47]) or attribute labels such as tumor count and severity (TGANet [56], Bi-VLGM [14]). These methods primarily target class-level or phrase-level queries, leaving their effectiveness with full narrative reports less established. We investigate report conditioning by jointly processing volumetric visual tokens and report text in an MLLM before mask prediction. 
+
+2.3. MLLM-based segmentation 
+
+This family splits into two modules. An MLLM processes text and image jointly to produce an embedding aligned to the image, and a separate segmentation module combines that embedding with fine-grained backbone features to pro-duce the mask. LISA introduced this design for natural im-ages [31] and later works extended it [45, 60, 62, 67]. Amedical branch adapts this design to biomedical images, usually in 2D. UniBioMed [61] couples an MLLM with a SAM-style segmentation module for grounded biomedi-cal interpretation. MedPLIB [28] drives a separate SAM-Med mask decoder from a [SEG] embedding, with the pixel-grounding path routed through an in-LLM mixture-of-experts. RepConTUR inherits this aligned embedding plus sepa-rate segmentation module design, but extends the 2D medi-cal setting to full 3D and broadens the conditioning from a short referring phrase to the narrative report. 
+
+2.4. Multitask learning 
+
+In the medical domain, multitask training most of-ten pairs segmentation with a diagnostic objective. 2(a)        
+
+> (b) (c)
+> Figure 1. Overview of RepConTUR. (a) Report-driven dataset construction from AbdomenAtlas 3.0 [4]. Report matching decomposes each organ tumor mask into suborgan-localized instances by intersection-over-component, yielding the RES and GSEG targets; the reports additionally yield verified VQA pairs. (b) The four tasks trained jointly on the shared backbone, namely RES, GSEG, RRG and VQA. (c)
+> A single native-3D early-fusion model. A 3D CT encoder produces visual tokens fused with the text prompt from the first LLM layer; a
+> [SEG] token drives a 3D segmentation module to a volumetric mask, while the same backbone answers VQA and generates RRG.
+
+Joint segmentation-and-classification improves segmenta-tion over single-task training [74], and universal models unify detection, segmentation and diagnosis across organs (CancerUniT [13], CLIP-Universal [36]). A newer line in-stead couples segmentation with language tasks such as di-agnostic text generation [32], VQA [28] and report gen-eration [22]. UniBioMed trains segmentation jointly with VQA and report generation and reports improved segmen-tation Dice [61]. We adopt this report-based multitask scheme and build a report-derived multitask dataset from AbdomenAtlas 3.0. From report-aligned tumor localization we derive two suborgan-level tumor segmentation tasks (RES and GSEG), and from the report itself we derive RRG and VQA. We jointly train all four on full-3D CT volumes and condition segmentation on the narrative report. 
+
+## 3. Report-guided multitask dataset 
+
+We build the report-guided multitask dataset from Abdom-enAtlas 3.0 [4], which provides 9,262 abdominal CT vol-umes with tumor masks for liver, kidney and pancreas, and organ masks that include suborgan structures such as liver Couinaud segments. Each volume also carries a synthet-ically generated radiology report from the RadGPT con-struction pipeline [4]. A structured report is first derived deterministically from the masks, listing per suborgan the tumor count, size, location, and attenuation. A large lan-guage model then rewrites the structured report into a nar-rative free-text report in radiologist style. The narrative may not enumerate every tumor. For multifocal disease it often reports the largest tumor with its suborgan and an aggregate tumor count rather than each tumor’s location. Across the 
+
+9,262 volumes, the narrative reports have a mean sequence length of 225 tokens and a maximum of 1,163 tokens under the Clinical-Longformer tokenizer [34]. We exclude volumes without tumors in any of the three organs to match the clinical setting of radiotherapy, where planning is performed only for tumor-positive pa-tients. Of the 9,262 volumes, 5,464 are tumor-free and re-moved, leaving 3,798 tumor-bearing volumes for training and evaluation. Positives are unevenly distributed across organs, with 1,508 liver-positive, 2,222 kidney-positive and 
+
+1,113 pancreas-positive volumes, namely 39 .7% , 58 .5% 
+
+and 29 .3% . Every organ is therefore trained with both tumor-present and tumor-absent volumes. 
+
+Report-guided tumor localization. The original tumor masks are at organ level, so we decompose them into per-suborgan instances using the structured report. We extract the connected components (CC) of the tumor mask. For each component c and suborgan mask s we measure their intersection over component, 
+
+IoC( c, s ) = |c ∩ s||c| , (1) and associate c with every suborgan whose IoC is nonzero, since one component can span more than one sub-3organ. The structured report describes the tumors at two levels of location, and we assign components differently for the two. Most findings name the suborgan and state how many tumors it contains, whereas others give only an organ-level finding without a suborgan. For a suborgan named by the report, we rank its overlapping components by IoC and keep the highest-ranked ones up to the tumor count stated for that suborgan. For a tumor the report places only at the organ level, the component is assigned to every suborgan whose IoC exceeds a fixed threshold and to its maximum-IoC suborgan. A component that overlaps no suborgan is instead assigned by spatial proximity. Because a suborgan can hold several tumors, we merge all components assigned to it into a single mask by voxel-wise union. 
+
+VQA generation. We generate up to 20 question– answer pairs per volume from the structured and narra-tive reports in a generation stage followed by a verification stage. The structured report supplies the exact per-tumor facts queried, namely suborgan location, size, and attenu-ation, while the narrative supplies tumor staging and clin-ical interpretation such as resectability. In the generation stage, a large language model writes pairs in three answer formats, namely binary yes/no, short answer, and multiple choice with enumerated options. The pairs span tumor pres-ence, tumor count, suborgan location, tumor size, enhance-ment pattern relative to the organ, and organ-level findings such as organ enlargement. Tumor size is queried as an interval rather than an exact measurement, since an exact diameter varies with the measurer while a coarse band is re-producible, using the bands < 1, 1–2, 2–3, 3–5, 5–10 and 
+
+> 10 cm. “No” questions are generated by perturbing a stated finding into a plausible but incorrect variation such as a different suborgan, side, or stage. In the verification stage, a separate language model checks each pair against the source structured and narrative reports and corrects or discards any pair that is unsupported by the reports, not an-swerable from the image alone, malformed in its answer, insufficiently localized, or whose negative is not a plausible variation. Across the 3,798 tumor-bearing volumes, veri-fication retains 71 ,783 pairs, 18 .9 per volume on average, comprising 48 ,451 yes/no, 13 ,433 short-answer and 9,899 
+
+multiple-choice. Within the yes/no pairs, 31 ,449 (64 .9% )are affirmative and 17 ,002 (35 .1% ) negative. 
+
+Multitask composition. We train RepConTUR jointly on four objectives, namely RES and GSEG for segmen-tation, RRG for radiology report generation and VQA for visual question answering. RES conditions on a suborgan-level referring phrase drawn from a pool of phrasal variants that indicate the tumor in a suborgan, for example “tumor in hepatic segment 7”. At training time one phrase is sam-pled from this pool and inserted into a randomly sampled instruction template, such as “Please segment the tumor in {phrase }.” or “Please delineate the GTV in {phrase }.”. RES also includes a whole-organ target that aggregates ev-ery tumor in an organ, named by an organ-level phrase such as “total liver GTV” or “all tumors in the kidney”. GSEG reuses the same target mask and referring phrase but prepends the full narrative report to the instruction, such as “{report } . . . Based on the above findings, please segment the tumor in {phrase }.”. The comparison therefore mea-sures the additional benefit of report context beyond the tar-get phrase, with the image and requested target held fixed. RRG generates the report from the CT, and VQA an-swers the report-derived questions. The two language tasks supply language supervision to the shared backbone that the segmentation tasks reuse. 
+
+## 4. 3D MLLM segmentation model 
+
+Early-fusion 3D MLLM. We adopt the CT-ViT of CT-CLIP [24] as the 3D visual encoder. It factorizes atten-tion into a spatial transformer that attends within each axial plane followed by a temporal transformer that attends across planes along the through-slice axis, producing a 3D token grid. This encodes the whole volume in 3D at lower cost than full 3D attention. We vary the original implementa-tion in its input, resampling volumes to a (1 .5, 1.5, 3.0) mm spacing and a 240 × 240 × 140 grid. We pretrain the en-coder with a CLIP objective, aligning each CT volume em-bedding with a Clinical-Longformer [34] embedding of its report. The original CT-ViT is pretrained only on chest CT from CT-RATE [24], so we add abdominal CT image– report pairs from Merlin [8] to generalize the encoder from chest to abdominal radiological semantics, which our down-stream abdominal tasks require. After pretraining we keep the frozen image branch as a feature extractor. Following CoCa [66], an attentional pooler with 256 learnable queries cross-attends to the encoder tokens to pro-duce 256 fixed-length visual tokens, projected to the LLM hidden dimension. We adopt a InternVL2.5-1B [16] lan-guage model as the backbone, initialized from the medically pretrained UniBioMed [61] weights. The LLM is frozen and adapted with LoRA [26]. We introduce a [SEG] token for requesting the segmentation [31]. 
+
+3D segmentation module. We adopt VoxTell [47] as the 3D segmentation module, initialized from its pretrained weights. It pairs an nnU-Net residual encoder [30] with a text-prompted decoder that consists of a prompt transformer and a U-Net decoder. We keep the encoder frozen and train the decoder. We construct this query from the language model. The hidden state of the [SEG] token is mapped by a two-layer projection to a 2048 -dimensional query embedding. Be-cause the MLLM fuses image and text early, this embedding jointly encodes the volume and the input text. The prompt transformer cross-attends from it to the encoder features to form a mask embedding, which the U-Net decoder fuses at 4every scale to produce the full-resolution volumetric mask. 
+
+## 5. Experiments and results 
+
+5.1. Setup 
+
+We evaluate abdominal tumor delineation on liver, kidney and pancreas across two streams, plus design ablations. 
+
+Text-promptable comparison. The first stream eval-uates text-promptable segmentation under a single refer-ring prompt, where RepConTUR is driven either by RES mode or GSEG mode. We compare it against three text-promptable baselines, namely the 2D MLLM-based model UniBioMed [61], the 2D late-fusion model BiomedParse v2 [70, 71], and the 3D late-fusion model VoxTell [47]. We finetune each baseline on our dataset with its own fine-tuning recipe, restricted to the tasks it supports, namely BiomedParse v2 on RES, VoxTell on RES and GSEG, and UniBioMed on all four tasks. This stream is evaluated on the AbdomenAtlas 3.0 test split. 
+
+Report-guided organ-wise segmentation. The second stream evaluates report-guided organ-wise segmentation against two vision-only specialists, the nnU-Net special-ist [30] trained to segment liver, kidney and pancreas tumors jointly as separate classes, and R-Super [3], a segmenta-tion model supervised by radiology reports during training; both use no report at inference. To simulate the radiother-apy setting where a CT scan and its report are available to-gether, we run a simple agentic inference pipeline in which an LLM parses the report into the tumor-bearing suborgans, RepConTUR grounds and segments each suborgan under RES or GSEG, and the per-suborgan masks are combined by union into an organ-wise prediction. When the narrative report aggregates findings at the organ level and does not localize the tumor to a specific suborgan, the LLM cannot name a suborgan target, and we prompt RepConTUR with a single whole-organ tumor phrase for that organ. Because neither specialist can ground individual suborgans, the re-port enters them only as an organ-level restriction that ze-roes any organ the report marks tumor-free. This stream is evaluated on an in-domain test set and four external out-of-distribution (OOD) sets, namely HCC-TACE-Seg for pri-mary hepatocellular carcinoma [39, 40], Colorectal-Liver-Metastases for colorectal liver metastases [53, 54], CPTAC-PDA for pancreatic ductal adenocarcinoma [42, 49], and CPTAC-CCRCC for clear cell renal cell carcinoma [41, 48]. These OOD sets have no radiology reports, so for each case we synthesize one with the same construction pipeline used for AbdomenAtlas 3.0 [4] and use it both to drive the agen-tic inference pipeline and as the GSEG grounding text. 
+
+Ablations. We ablate two design choices on the test split. The first evaluates successive replacements of the 2D visual and segmentation modules with their 3D coun-terparts, namely a 2D/2D reference, a 3D/2D variant, and 
+
+Table 1. Comparison with the text-promptable baselines on test split. Rs =RES, Gs =GSEG. DSC: Dice, R/P: instance-wise Re-call/Precision, F1: harmonic mean. Bold : highest per column per section.                                                                                                                                            
+
+> DSC RPF1 Model Rs Gs Rs Gs Rs Gs Rs Gs
+> Liver
+> VoxTell 0.406 0.339 0.455 0.387 0.019 0.010 0.037 0.020 UniBioMed 0.370 0.391 0.531 0.554 0.081 0.086 0.141 0.149 BiomedParse v2 0.341 —0.693 —0.082 —0.147 —RepConTUR 0.522 0.542 0.616 0.611 0.369 0.424 0.461 0.500 Pancreas
+> VoxTell 0.270 0.221 0.430 0.336 0.099 0.078 0.161 0.127 UniBioMed 0.205 0.215 0.399 0.413 0.032 0.039 0.060 0.072 BiomedParse v2 0.305 —0.711 —0.057 —0.105 —RepConTUR 0.386 0.399 0.624 0.644 0.336 0.376 0.437 0.475 Kidney
+> VoxTell 0.470 0.391 0.477 0.369 0.025 0.020 0.047 0.039 UniBioMed 0.450 0.456 0.619 0.612 0.070 0.069 0.126 0.123 BiomedParse v2 0.469 —0.836 —0.075 —0.138 —RepConTUR 0.621 0.627 0.781 0.775 0.487 0.501 0.600 0.609 Mean
+> VoxTell 0.382 0.317 0.454 0.364 0.048 0.036 0.082 0.062 UniBioMed 0.342 0.354 0.516 0.526 0.061 0.065 0.109 0.115 BiomedParse v2 0.372 —0.747 —0.071 —0.130 —RepConTUR 0.510 0.523 0.674 0.677 0.397 0.433 0.499 0.528
+
+the full 3D/3D model (Tab. 2). The second adds the four training tasks cumulatively, from RES alone to the full mul-titask model (Tab. 3). 
+
+Evaluation metrics. We assess our model with DSC, instance-wise Recall (R) and Precision (P), and their har-monic mean F1. Tumor instances are 3D connected compo-nents, and a predicted tumor matches a ground-truth tumor by IoU ≥ 0.10 , following medical detection practice [5, 51]. 
+
+5.2. Comparison with text-promptable baselines 
+
+On the test split (Tab. 1), RepConTUR attains the highest DSC, instance-wise precision, and detection F1 in every or-gan section for both RES and GSEG, and the highest recall against every baseline except BiomedParse v2. Averaged over the three organs, RepConTUR precision is 0.397 in RES and 0.433 in GSEG, versus ≤ 0.071 for every base-line. The sole exception is recall, where BiomedParse v2 is higher in every organ, with mean recall 0.747 against RepConTUR RES 0.674 , but its precision is substantially lower, so RepConTUR attains a higher detection F1 by a substantial margin, mean 0.499 against 0.130 . Between the two conditioning modes of RepConTUR, prepending the re-port raises mean precision from RES 0.397 to GSEG 0.433 ,while mean recall is comparable at 0.674 and 0.677 , so the report-conditioning effect is concentrated in precision. The baselines respond differently to report conditioning. VoxTell’s macro F1 decreases from 0.082 in RES to 0.062 
+
+in GSEG, whereas UniBioMed and RepConTUR improve from 0.109 to 0.115 and from 0.499 to 0.528 , respectively. The MLLM-based models benefit from the additional report 5Table 2. Design ablation replacing the 2D visual and segmenta-tion modules with 3D counterparts, 3-organ macro means. Rows are (vision / segmentation) module; 2D/2D is UniBioMed, 3D/2D replaces only the visual encoder. Metrics and abbreviations as in Tab. 1. Bold : highest per column.                                    
+
+> DSC RPF1 Vis./Seg. Rs Gs Rs Gs Rs Gs Rs Gs 2D / 2D 0.342 0.354 0.517 0.526 0.061 0.065 0.109 0.115 3D / 2D 0.331 0.378 0.526 0.535 0.075 0.080 0.129 0.139 3D / 3D 0.510 0.523 0.674 0.677 0.397 0.433 0.499 0.528
+
+text, while VoxTell, a late-fusion model, does not. 
+
+Qualitative results and prompt conditioning Across the three organs, RepConTUR confines its prediction to the referred tumor, whereas the baselines add false positives on the same slice (Fig. 2). The liver and pancreas cases each contain multiple tumors, so these false positives are not spu-rious activations but genuine tumors elsewhere in the same organ that the referring prompt did not single out. Under the pancreatic-body prompt the baselines additionally delineate a separate tumor in the tail, and under the segment-4 liver prompt they add further hepatic tumors. In the kidney they instead segment the tumor-free contralateral organ. Both behaviours are localization failures relative to the referring prompt and are consistent with the low baseline precision in Tab. 1. Figure 3 shows that the model does not segment in-discriminately. Changing the suborgan in the prompt moves the predicted mask, and querying a tumor-free organ pro-duces an empty output, so the prompt determines both the location and the presence of the segmentation. 
+
+5.3. Ablation studies 
+
+Table 2 shows an ablation that varies the vision encoder and the segmentation module from 2D to 3D. The 2D/2D row pairs a 2D InternViT vision encoder [16] with a SAM2 seg-mentation module [46], initialized with UniBioMed. The 3D/2D row replaces this 2D encoder with our 3D CT-ViT while keeping the 2D SAM2 segmentation module, and the 3D/3D row adds the 3D segmentation module to form the full RepConTUR. Replacing the 2D visual encoder with the 3D CT-ViT yields modest improvements in detection met-rics in both modes. DSC increases in GSEG from 0.354 to 
+
+0.378 but decreases in RES from 0.342 to 0.331 . The larger improvement occurs when the 2D segmentation module is replaced with the pretrained 3D module, with GSEG preci-sion increasing from 0.080 to 0.433 and detection F1 from 
+
+0.139 to 0.528 .Table 3 adds the training tasks cumulatively and reports both inference modes together. Starting from a RES-only model, adding GSEG co-training gives the largest single gain. It brings the report-grounded GSEG mode to a strong operating point, with DSC 0.524 and F1 0.508 , and it also                                               
+
+> Table 3. Multitask ablation, tasks added cumulatively (RES, +GSEG, +RRG, +VQA), 3-organ macro means. A RES-only model has no Gs (–). Metrics and abbreviations as in Tab. 1. Bold :highest per column.
+> DSC RPF1 Train Rs Gs Rs Gs Rs Gs Rs Gs RES 0.481 —0.657 —0.345 —0.450 —+GSEG 0.505 0.524 0.650 0.658 0.385 0.415 0.482 0.508 +RRG 0.503 0.524 0.656 0.655 0.396 0.435 0.493 0.523 +VQA 0.510 0.523 0.674 0.677 0.397 0.433 0.499 0.528
+
+raises the phrase-only RES mode that uses no report at in-ference, lifting DSC from 0.481 to 0.505 , precision from 
+
+0.345 to 0.385 , and F1 from 0.450 to 0.482 . This transfer to RES occurs despite that mode sharing no report text at test time. Adding the two language tasks, RRG then VQA, further increases detection F1, from 0.482 to 0.493 to 0.499 
+
+in RES and from 0.508 to 0.523 to 0.528 in GSEG. Other metrics do not improve monotonically, and GSEG DSC re-mains stable at 0.523 –0.524 . The observed benefit of the additional language tasks is therefore concentrated in de-tection F1. 
+
+5.4. Report-based inference versus vision-only spe-cialists 
+
+Following the report-guided organ-wise protocol of Sec. 5.1, we compare the two report-based conditions, RES and GSEG, against two vision-only specialists. We report results separately for the in-domain test set (Tab. 4) and the four external OOD sets (Tab. 5). 
+
+In-domain test set. On liver and pancreas, the two tu-mor types with the least conspicuous boundaries, RES and GSEG improve tumor detection substantially (Tab. 4). De-tection F1 rises to 0.599 on liver (RES) and 0.475 on pan-creas (GSEG). R-Super also exceeds the vision-only nnU-Net specialist on detection F1 for liver and pancreas, at 
+
+0.485 against 0.463 and 0.452 against 0.387 . RepCon-TUR improves further with the report available at inference, clearly on liver at 0.599 in RES against R-Super 0.485 ,and comparably to R-Super on pancreas at 0.447 in RES and 0.475 in GSEG against 0.452 . Hepatic and pancre-atic tumors are frequently low-contrast and blend into the surrounding parenchyma, so the report context appears to help localize disease that vision alone tends to miss or over-segment. On kidney, whose tumors are comparatively well-delineated in contrast-enhanced CT, the vision-only nnU-Net specialist is already strong [25] at F1 0.661 , while R-Super falls to 0.559 through a precision collapse to 0.435 
+
+despite the highest kidney recall of 0.784 , and RepConTUR sits between at 0.575 –0.584 . Averaged over the three or-gans, RES and GSEG exceed both specialists on detection 6GT RepConTUR VoxTell UniBioMed BiomedParse v2 
+
+> Liver
+> “tumor in segment 4 of the liver”
+> Kidney
+> “tumor in the kidney”
+> Pancreas
+> “tumor in the pancreas body”
+
+Figure 2. Qualitative segmentation on the test split, same referring prompt per row, one axial slice. Cyan box marks the referred tumor, magnified in the lower-right inset; yellow arrows mark components outside it. GT green, prediction red. RepConTUR confines its predic-tion to the referred tumor, whereas the baselines add components elsewhere on the slice, namely other real but non-referred tumors for the multifocal liver and pancreas cases and the tumor-free contralateral kidney for the kidney case. These raise the false-positive count and are consistent with the low baseline precision in Tab. 1.    
+
+> Segment 5 Segment 6 Segment 3 Kidney
+
+Figure 3. Prompt conditioning for a multifocal liver case, one axial slice. Switching the prompt between segments 5 and 6 moves the mask from anterior to posterior; querying segment 3, whose tumor lies on other slices, or the tumor-free kidney yields an empty mask, so the prompt controls both location and presence. 
+
+F1, 0.543 and 0.548 against nnU-Net 0.504 and R-Super 
+
+0.499 , and on precision; the R-Super mean is held down by kidney rather than resembling nnU-Net across organs. 
+
+External OOD sets. Table 5 reports the four external OOD cohorts. GSEG attains the highest detection F1 in three of four cohorts and is comparable to the report-supervised R-Super specialist on CPTAC-PDA ( 0.571 vs. 
+
+0.573 ); it exceeds the nnU-Net specialist by 0.189 on HCC, 
+
+0.153 on PDA, 0.123 on CCRCC and 0.050 on CRLM. The margin over nnU-Net is positive on all four, includ-ing the kidney cohort CCRCC, the one organ on which nnU-Net was higher in domain, so the advantage extends even where vision-only segmentation was strongest in do-main. The gain comes from false-positive suppression, as the nnU-Net precision degrades out of domain to a mean 
+
+0.307 against GSEG 0.432 , while recall stays comparable across methods. R-Super, which uses reports for training-time supervision, shows the same out-of-domain precision collapse as nnU-Net at a mean 0.322 , so RepConTUR at-tains higher external-cohort precision than both evaluated specialists. The advantage is not specific to GSEG. RES, which uses report-derived target phrases without condition-ing the segmentation model on the full report, also ex-ceeds the nnU-Net specialist F1 in every cohort, by 0.117 
+
+on HCC, 0.104 on PDA, 0.074 on CCRCC and 0.047 on CRLM. The margin over the nnU-Net specialist is also larger out of domain than in domain, with a mean detection-7Table 4. Report-based inference on the in-domain test set, per-organ RES/GSEG vs. two vision-only specialists, namely nnU-Net and the report-supervised R-Super [3]. nnU-Net and R-Super are restricted to the organs the agentic pipeline names, RES/GSEG are suborgan-decomposed. Metrics as in Tab. 1. Bold : highest per column per organ.                                                                        
+
+> Model DSC RPF1
+> Liver (n=134 )nnU-Net 0.602 0.566 0.392 0.463 R-Super 0.580 0.517 0.457 0.485 RES 0.610 0.659 0.550 0.599
+> GSEG 0.612 0.633 0.559 0.594
+> Pancreas (n=110 )nnU-Net 0.367 0.554 0.297 0.387 R-Super 0.392 0.612 0.359 0.452 RES 0.393 0.619 0.350 0.447 GSEG 0.403 0.626 0.383 0.475 Kidney (n=225 )nnU-Net 0.664 0.751 0.590 0.661
+> R-Super 0.652 0.784 0.435 0.559 RES 0.626 0.695 0.503 0.584 GSEG 0.625 0.689 0.493 0.575
+> Mean
+> nnU-Net 0.544 0.624 0.426 0.504 R-Super 0.542 0.638 0.417 0.499 RES 0.543 0.658 0.468 0.543 GSEG 0.547 0.649 0.478 0.548
+
+F1 advantage of 0.129 for GSEG and 0.086 for RES out of domain against 0.044 and 0.039 in domain, consistent with report-guided grounding generalizing under domain shift better than a vision-only specialist. The contrast between RES and GSEG isolates the report-text effect, since the two share the same suborgan decomposition and differ only in report text. F1 rises with report text on the primary can-cers, by 0.072 on HCC, 0.049 on PDA, 0.049 on CCRCC, and 0.003 on CRLM, where DSC is instead higher for nnU-Net at 0.672 against 0.626 . On CRLM RepConTUR still surpasses the nnU-Net specialist on detection F1, driven by higher precision. 
+
+5.5. Limitations and future work 
+
+RepConTUR targets three abdominal organs, namely liver, kidney and pancreas, while tumors in the other body regions are excluded in this work. Whether the approach scales to a larger set of tumor classes, spanning further abdominal or-gans and other body regions, is not established, and verify-ing this class-scaling ability is a primary direction for future work. The validation cohorts lack real reports and were grounded with synthetic ones. Although these synthetic re-ports emulate the style of real narrative radiology reports, whether the same gain holds under real clinical reports, given their stylistic variation and reporting inconsistencies, 
+
+Table 5. Out-of-distribution generalization on four public tu-mor sets outside AbdomenAtlas 3.0, RES/GSEG (suborgan-decomposed, synthetic reports) vs. the vision-only nnU-Net and report-supervised R-Super [3] specialists. Sets are GT-positive only, so no organ is suppressed. Metrics as in Tab. 1. Bold : high-est per column per cohort.                                                                                             
+
+> Model DSC RPF1
+> HCC-TACE-Seg — HCC (liver), n=130
+> nnU-Net 0.650 0.679 0.134 0.223 R-Super 0.597 0.653 0.111 0.190 RES 0.719 0.689 0.225 0.340 GSEG 0.727 0.694 0.293 0.412 CPTAC-PDA — PDAC (pancreas), n=108
+> nnU-Net 0.492 0.766 0.287 0.418 R-Super 0.471 0.793 0.449 0.573
+> RES 0.488 0.793 0.389 0.522 GSEG 0.503 0.802 0.443 0.571
+> CPTAC-CCRCC — ccRCC (kidney), n=108
+> nnU-Net 0.804 0.943 0.240 0.383 R-Super 0.791 0.943 0.187 0.312 RES 0.799 0.927 0.303 0.457 GSEG 0.807 0.927 0.348 0.506 Colorectal-Liver-Metastases — CRLM (liver), n=197
+> nnU-Net 0.672 0.731 0.565 0.637 R-Super 0.611 0.756 0.539 0.630 RES 0.625 0.731 0.643 0.684 GSEG 0.626 0.737 0.644 0.687 Mean
+> nnU-Net 0.655 0.780 0.307 0.415 R-Super 0.618 0.786 0.322 0.426 RES 0.658 0.785 0.390 0.501 GSEG 0.666 0.790 0.432 0.544
+
+remains to be verified. Confirming the benefit requires eval-uation on datasets that pair real-world radiology reports with their images. The clinical value of automatic segmentation rests on the editing time it saves, which we do not measure on our out-puts [57], so prospective clinical and editing-time studies remain future work. 
+
+## 6. Conclusion 
+
+We presented RepConTUR, a native-3D multimodal model that conditions abdominal tumor segmentation on a refer-ring phrase and, optionally, a narrative report, using report-aligned suborgan masks. A report-derived dataset supports joint training on four tasks from AbdomenAtlas 3.0, namely referring and grounded segmentation, report generation and question answering. RepConTUR attains the highest DSC, precision and detection F1 among the text-promptable base-lines, and improves mean detection F1 over the nnU-Net and R-Super specialists in-domain and across four exter-nal cohorts, although performance varies by organ. These results support report-conditioned segmentation under syn-thetic reports, and validation with independently authored 8clinical reports remains necessary. 
+
+## LLM Usage Statement 
+
+We used large language models in data construction, infer-ence and manuscript preparation. GPT-5.4 generated the VQA pairs from the AbdomenAtlas 3.0 reports, and GPT-5.4-mini verified them by correcting or discarding pairs in-consistent with the report. OpenAI’s gpt-5.6-terra 
+
+rewrote the structured reports of the four external cohorts into narrative reports, as detailed in the supplementary ma-terial. The same model parses each report into tumor-bearing suborgan targets in the agentic inference pipeline (Sec. 5.1). Claude (Anthropic), used through Claude Code, assisted in writing and debugging code, running experi-ments, producing figures, surveying related work, organiz-ing and verifying references, and writing and editing the manuscript, and it provided review feedback on manuscript drafts. OpenAI Codex was also used to verify citations and to review the manuscript. No LLM output was used with-out review by the authors, who take full responsibility for all content. 
+
+## Acknowledgements 
+
+This research was supported by the AI Comput-ing Infrastructure Enhancement (GPU Rental Sup-port) User Support Program funded by the Min-istry of Science and ICT (MSIT), Republic of Korea. 
+
+## References 
+
+[1] Mahul B. Amin, Frederick L. Greene, Stephen B. Edge, Car-olyn C. Compton, Jeffrey E. Gershenwald, Robert K. Brook-land, Laura Meyer, Donna M. Gress, David R. Byrd, and David P. Winchester. The eighth edition AJCC cancer stag-ing manual. CA: A Cancer Journal for Clinicians , 67(2): 93–99, 2017. 1 [2] Satanjeev Banerjee and Alon Lavie. METEOR: An auto-matic metric for MT evaluation with improved correlation with human judgments. In Proceedings of the ACL Workshop on Intrinsic and Extrinsic Evaluation Measures for Machine Translation and/or Summarization , pages 65–72, 2005. 17, 18 [3] Pedro R. A. S. Bassi, Wenxuan Li, Jieneng Chen, Zheren Zhu, Tianyu Lin, Sergio Decherchi, Andrea Cavalli, Kang Wang, Yang Yang, Alan L. Yuille, and Zongwei Zhou. Learning segmentation from radiology reports. In Medi-cal Image Computing and Computer-Assisted Intervention (MICCAI) , pages 305–315, 2025. 1, 2, 5, 8 [4] Pedro R. A. S. Bassi, Mehmet Can Yavuz, Ibrahim Ethem Hamamci, Sezgin Er, Xiaoxi Chen, Wenxuan Li, Bjoern Menze, Sergio Decherchi, Andrea Cavalli, Kang Wang, Yang Yang, Alan L. Yuille, and Zongwei Zhou. RadGPT: Constructing 3D image-text tumor datasets. In Proc. IEEE/CVF International Conference on Computer Vision (ICCV) , pages 23720–23730, 2025. 2, 3, 5, 13 [5] Michael Baumgartner, Paul F. J¨ ager, Fabian Isensee, and Klaus H. Maier-Hein. nnDetection: A self-configuring method for medical object detection. In Medical Image Com-puting and Computer Assisted Intervention (MICCAI) , pages 530–539, 2021. 5 [6] Patrick Bilic, Patrick Christ, Hongwei Bran Li, Eugene Vorontsov, Avi Ben-Cohen, Georgios Kaissis, Adi Szeskin, Colin Jacobs, Gabriel Efrain Humpire Mamani, et al. The liver tumor segmentation benchmark (LiTS). Medical Image Analysis , 84:102680, 2023. 1 [7] David Bird, Andrew F. Scarsbrook, Jonathan Sykes, Sa-tiavani Ramasamy, Manil Subesinghe, Brendan Carey, Daniel J. Wilson, Neil Roberts, Garry McDermott, Ebru Karakaya, Emel Bayman, Mehmet Sen, Richard Speight, and Robin J. D. Prestwich. Multimodality imaging with CT, MR and FDG-PET for radiotherapy target volume de-lineation in oropharyngeal squamous cell carcinoma. BMC Cancer , 15:844, 2015. 1 [8] Louis Blankemeier, Ashwin Kumar, Joseph Paul Cohen, Ji-aming Liu, Longchao Liu, Dave Van Veen, Syed Jamal Saf-dar Gardezi, Hongkun Yu, Magdalini Paschali, Zhihong Chen, et al. Merlin: A computed tomography vision-language foundation model and dataset. Nature , 652(8112): 1318–1328, 2026. 4, 14 [9] Joeran S. Bosma, Anindo Saha, Matin Hosseinzadeh, Ivan Slootweg, Maarten de Rooij, and Henkjan Huisman. Semisu-pervised learning with report-guided pseudo labels for deep learning-based prostate cancer detection using biparametric MRI. Radiology: Artificial Intelligence , 5(5):e230031, 2023. 1, 2 [10] Rich Caruana. Multitask learning. Machine Learning , 28(1): 41–75, 1997. 2 [11] ¨Ozg¨ un C ¸ ic ¸ek, Ahmed Abdulkadir, Soeren S. Lienkamp, Thomas Brox, and Olaf Ronneberger. 3D U-Net: Learning dense volumetric segmentation from sparse annotation. In 
+
+Medical Image Computing and Computer-Assisted Interven-tion (MICCAI) , pages 424–432, 2016. 2 [12] Hila Chefer, Shir Gur, and Lior Wolf. Generic attention-model explainability for interpreting bi-modal and encoder-decoder transformers. In Proceedings of the IEEE/CVF In-ternational Conference on Computer Vision (ICCV) , pages 397–406, 2021. 15, 16 [13] Jieneng Chen, Yingda Xia, Jiawen Yao, Ke Yan, Jianpeng Zhang, Le Lu, Fakai Wang, Bo Zhou, Mingyan Qiu, Qi-hang Yu, et al. CancerUniT: Towards a single unified model for effective detection, segmentation, and diagnosis of eight major cancers using a large collection of CT scans. In 
+
+Proc. IEEE/CVF International Conference on Computer Vi-sion (ICCV) , pages 21270–21281, 2023. 3 [14] Wenting Chen, Jie Liu, and Yixuan Yuan. Bi-VLGM: Bi-level class-severity-aware vision-language graph matching for text guided medical image segmentation. International Journal of Computer Vision , 2024. 2 [15] Yaxiong Chen, Minghong Wei, Zixuan Zheng, Jingliang Hu, Yilei Shi, Shengwu Xiong, Xiao Xiang Zhu, and Lichao 
+
+9Mou. CausalCLIPSeg: Unlocking CLIP’s potential in refer-ring medical image segmentation with causal intervention. In Medical Image Computing and Computer-Assisted Inter-vention (MICCAI) , pages 77–87, 2024. 2 [16] Zhe Chen, Jiannan Wu, Wenhai Wang, Weijie Su, Guo Chen, Sen Xing, Muyan Zhong, Qinglong Zhang, Xizhou Zhu, Lewei Lu, Bin Li, Ping Luo, Tong Lu, Yu Qiao, and Jifeng Dai. InternVL: Scaling up vision foundation models and aligning for generic visual-linguistic tasks. In 
+
+Proc. IEEE/CVF Conference on Computer Vision and Pat-tern Recognition (CVPR) , 2024. 4, 6 [17] Victoria Chernyak, Kathryn J. Fowler, Aya Kamaya, Ania Z. Kielar, Khaled M. Elsayes, Mustafa R. Bashir, Yuko Kono, Richard K. Do, Donald G. Mitchell, Amit G. Singal, An Tang, and Claude B. Sirlin. Liver imaging reporting and data system (LI-RADS) version 2018. Radiology , 289(3): 816–830, 2018. 2 [18] Claude Couinaud. Le foie: ´ etudes anatomiques et chirurgi-cales . Masson, Paris, 1957. 2 [19] Yuxin Du, Fan Bai, Tiejun Huang, and Bo Zhao. SegVol: Universal and interactive volumetric medical image segmen-tation. In Advances in Neural Information Processing Sys-tems (NeurIPS) , 2024. 2 [20] E. A. Eisenhauer, P. Therasse, J. Bogaerts, L. H. Schwartz, D. Sargent, R. Ford, J. Dancey, S. Arbuck, S. Gwyther, M. Mooney, L. Rubinstein, L. Shankar, L. Dodd, R. Kaplan, D. Lacombe, and J. Verweij. New response evaluation criteria in solid tumours: revised RECIST guideline (version 1.1). 
+
+European Journal of Cancer , 45(2):228–247, 2009. 1 [21] John S. Ginn, Hiram A. Gay, Jessica Hilliard, Jainil Shah, Nilesh Mistry, Christian M¨ ohler, Geoffrey D. Hugo, and Yao Hao. A clinical and time savings evaluation of a deep learn-ing automatic contouring algorithm. Medical Dosimetry , 48 (1):55–60, 2023. 1 [22] Yannian Gu, Wenhui Lei, Hanyu Chen, Shaoting Zhang, and Xiaofan Zhang. Interactive segmentation and report gen-eration for CT images. In Medical Image Computing and Computer-Assisted Intervention (MICCAI) , pages 273–283, 2025. 3 [23] Guangyu Guo, Jiawen Yao, Yingda Xia, Tony C. W. Mok, Zhilin Zheng, Junwei Han, Le Lu, Dingwen Zhang, Jian Zhou, and Ling Zhang. Boosting medical image-based can-cer detection via text-guided supervision from reports. arXiv preprint arXiv:2405.14230 , 2024. 1, 2 [24] Ibrahim Ethem Hamamci, Sezgin Er, Chenyu Wang, Furkan Almas, Ayse Gulnihan Simsek, Sevval Nil Esirgun, Irem Dogan, Omer Faruk Durugol, Benjamin Hou, Suprosanna Shit, et al. Generalist foundation models from a multimodal dataset for 3D computed tomography. Nature Biomedical Engineering , 10(8):1610–1628, 2026. 4, 14 [25] Nicholas Heller, Fabian Isensee, Klaus H. Maier-Hein, Xi-aoshuai Hou, et al. The state of the art in kidney and kidney tumor segmentation in contrast-enhanced CT imaging: Re-sults of the KiTS19 challenge. Medical Image Analysis , 67: 101821, 2021. 6 [26] Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. LoRA: Low-rank adaptation of large language models. In In-ternational Conference on Learning Representations (ICLR) ,2022. 4 [27] Xiaoshuang Huang, Hongxiang Li, Meng Cao, Long Chen, Chenyu You, and Dong An. Cross-modal conditioned recon-struction for language-guided medical image segmentation. 
+
+IEEE Transactions on Medical Imaging , 2025. 2 [28] Xiaoshuang Huang, Lingdong Shen, Jia Liu, Fangxin Shang, Hongxiang Li, Haifeng Huang, and Yehui Yang. Towards a multimodal large language model with pixel-level insight for biomedicine. In Proceedings of the AAAI Conference on Artificial Intelligence , pages 3779–3787, 2025. 2, 3 [29] International Commission on Radiation Units and Measure-ments. Prescribing, recording, and reporting photon-beam intensity-modulated radiation therapy (IMRT). Technical Report ICRU Report 83, ICRU, 2010. 1 [30] Fabian Isensee, Paul F. Jaeger, Simon A. A. Kohl, Jens Petersen, and Klaus H. Maier-Hein. nnU-Net: a self-configuring method for deep learning-based biomedical im-age segmentation. Nature Methods , 18(2):203–211, 2021. 2, 4, 5 [31] Xin Lai, Zhuotao Tian, Yukang Chen, Yanwei Li, Yuhui Yuan, Shu Liu, and Jiaya Jia. LISA: Reasoning segmentation via large language model. In Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2024. 1, 2, 4 [32] Chengrun Li, Corentin Royer, Haozhe Luo, Bastian Wittmann, Xia Li, Ibrahim Hamamci, Sezgin Er, Anjany Sekuboyina, and Bjoern Menze. RadDiagSeg-M: A vision language model for joint diagnosis and multi-target segmen-tation in radiology. arXiv preprint arXiv:2510.18188 , 2025. 3[33] Liunian Harold Li, Pengchuan Zhang, Haotian Zhang, Jian-wei Yang, Chunyuan Li, Yiwu Zhong, Lijuan Wang, Lu Yuan, Lei Zhang, Jenq-Neng Hwang, Kai-Wei Chang, and Jianfeng Gao. Grounded language-image pre-training. In 
+
+Proc. IEEE/CVF Conference on Computer Vision and Pat-tern Recognition (CVPR) , 2022. 1 [34] Yikuan Li, Ramsey M. Wehbe, Faraz S. Ahmad, Hanyin Wang, and Yuan Luo. A comparative study of pretrained language models for long clinical text. Journal of the Amer-ican Medical Informatics Association , 30(2):340–347, 2023. 3, 4 [35] Zihan Li, Yunxiang Li, Qingde Li, Puyang Wang, Dazhou Guo, Le Lu, Dakai Jin, You Zhang, and Qingqi Hong. LViT: Language meets vision transformer in medical image seg-mentation. IEEE Transactions on Medical Imaging , 43(1): 96–107, 2024. 2 [36] Jie Liu, Yixiao Zhang, Jie-Neng Chen, Junfei Xiao, Yongyi Lu, Bennett A. Landman, Yixuan Yuan, Alan Yuille, Yucheng Tang, and Zongwei Zhou. CLIP-driven univer-sal model for organ segmentation and tumor detection. In 
+
+Proc. IEEE/CVF International Conference on Computer Vi-sion (ICCV) , pages 21152–21164, 2023. 2, 3 [37] Lena Maier-Hein, Annika Reinke, Patrick Godau, Minu D. Tizabi, Florian Buettner, Evangelia Christodoulou, Ben Glocker, Fabian Isensee, Jens Kleesiek, Michal Kozubek, 
+
+10 et al. Metrics reloaded: recommendations for image anal-ysis validation. Nature Methods , 21(2):195–212, 2024. 1 [38] Pawel Mlynarski, Herv´ e Delingette, Antonio Criminisi, and Nicholas Ayache. 3D convolutional neural networks for tu-mor segmentation using long-range 2D context. Computer-ized Medical Imaging and Graphics , 73:60–72, 2019. 2 [39] Ahmed W. Moawad, David Fuentes, Ali Morshid, Ahmed M. Khalaf, Mohab M. Elmohr, Abdelrahman Abusaif, John D. Hazle, Ahmed O. Kaseb, Manal Hassan, Armeen Mah-vash, Janio Szklaruk, Aliyya Qayyom, and Khaled El-sayes. Multimodality annotated HCC cases with and without advanced imaging segmentation (HCC-TACE-Seg), 2021. doi: 10.7937/TCIA.5FNA-0924. 5, 13 [40] Ahmed W. Moawad, Ali Morshid, Ahmed M. Khalaf, Mo-hab M. Elmohr, John D. Hazle, David Fuentes, Mohamed Badawy, Ahmed O. Kaseb, Manal Hassan, Armeen Mah-vash, Janio Szklaruk, Aliyya Qayyum, Abdelrahman Abu-saif, William C. Bennett, Tracy S. Nolan, Brittney Camp, and Khaled M. Elsayes. Multimodality annotated hepatocel-lular carcinoma data set including pre- and post-TACE with imaging segmentation. Scientific Data , 10(1):33, 2023. 5, 13 [41] National Cancer Institute Clinical Proteomic Tumor Analysis Consortium (CPTAC). The clinical pro-teomic tumor analysis consortium clear cell renal cell carcinoma collection (CPTAC-CCRCC), 2018. doi: 10.7937/K9/TCIA.2018.OBLAMN27. 5, 13 [42] National Cancer Institute Clinical Proteomic Tumor Analysis Consortium (CPTAC). The clinical pro-teomic tumor analysis consortium pancreatic duc-tal adenocarcinoma collection (CPTAC-PDA), 2018. doi: 10.7937/K9/TCIA.2018.SC20FO18. 5, 13 [43] Shuyi Ouyang, Jinyang Zhang, Xiangye Lin, Xilai Wang, Qingqing Chen, Yen-Wei Chen, and Lanfen Lin. Language-guided scale-aware MedSegmentor for lesion segmentation in medical imaging. arXiv preprint arXiv:2408.17347 , 2024. 2[44] Robert Poel, Elias R¨ ufenacht, Ekin Ermis, Michael M¨ uller, Michael K. Fix, Daniel M. Aebersold, Peter Manser, and Mauricio Reyes. Impact of random outliers in auto-segmented targets on radiotherapy treatment plans for glioblastoma. Radiation Oncology , 17(1):170, 2022. 1 [45] Hanoona Rasheed, Muhammad Maaz, Sahal Shaji, Abdel-rahman Shaker, Salman Khan, Hisham Cholakkal, Rao M. Anwer, Eric Xing, Ming-Hsuan Yang, and Fahad S. Khan. GLaMM: Pixel grounding large multimodal model. In 
+
+Proc. IEEE/CVF Conference on Computer Vision and Pat-tern Recognition (CVPR) , 2024. 1, 2 [46] Nikhila Ravi, Valentin Gabeur, Yuan-Ting Hu, Ronghang Hu, Chaitanya Ryali, Tengyu Ma, Haitham Khedr, Roman R¨ adle, Chloe Rolland, Laura Gustafson, et al. SAM 2: Seg-ment anything in images and videos. In International Con-ference on Learning Representations (ICLR) , 2025. 6 [47] Maximilian Rokuss, Moritz Langenberg, Yannick Kirchhoff, Fabian Isensee, Benjamin Hamm, Constantin Ulrich, Sebas-tian Regnery, Lukas Bauer, Efthimios Katsigiannopulos, To-bias Norajitra, and Klaus Maier-Hein. VoxTell: Free-text promptable universal 3d medical image segmentation. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vi-sion and Pattern Recognition (CVPR) , 2026. 1, 2, 4, 5 [48] Michael Rozenfeld and Petr Jordan. Annotations for the clinical proteomic tumor analysis consortium clear cell renal cell carcinoma collection (CPTAC-CCRCC-Tumor-Annotations), 2023. doi: 10.7937/SKQ4-QX48. 5, 13 [49] Michael Rozenfeld and Petr Jordan. Annotations for the clinical proteomic tumor analysis consortium pan-creatic ductal adenocarcinoma collection (CPTAC-PDA-Tumor-Annotations), 2023. doi: 10.7937/BW9V-BX61. 5, 13 [50] Sebastian Ruder. An overview of multi-task learning in deep neural networks. arXiv preprint arXiv:1706.05098 , 2017. 2 [51] Anindo Saha, Joeran S. Bosma, Jasper J. Twilt, et al. Artifi-cial intelligence and radiologists in prostate cancer detection on MRI (PI-CAI): an international, paired, non-inferiority, confirmatory study. The Lancet Oncology , 2024. 5 [52] Barbara Segedin and Primoz Petric. Uncertainties in target volume delineation in radiotherapy – are they relevant and what can we do about them? Radiology and Oncology , 50 (3):254–262, 2016. 1 [53] Amber L. Simpson, Jacob Peoples, John M. Creasy, Ga-bor Fichtinger, Natalie Gangai, Andras Lasso, Krishna Nand Keshava Murthy, Jinru Shia, Michael I. D’Angelica, and Richard K. G. Do. Preoperative CT and survival data for patients undergoing resection of colorectal liver metastases (Colorectal-Liver-Metastases), 2023. doi: 10.7937/QXK2-QG03. 5, 13 [54] Amber L. Simpson, Jacob Peoples, John M. Creasy, Gabor Fichtinger, Natalie Gangai, Krishna N. Keshavamurthy, An-dras Lasso, Jinru Shia, Michael I. D’Angelica, and Richard K. G. Do. Preoperative CT and survival data for patients un-dergoing resection of colorectal liver metastases. Scientific Data , 11(1):172, 2024. 5, 13 [55] Trevor Standley, Amir R. Zamir, Dawn Chen, Leonidas Guibas, Jitendra Malik, and Silvio Savarese. Which tasks should be learned together in multi-task learning? In 
+
+Proc. 37th International Conference on Machine Learning (ICML) , pages 9120–9132, 2020. 2 [56] Nikhil Kumar Tomar, Debesh Jha, Ulas Bagci, and Sharib Ali. TGANet: Text-guided attention for improved polyp segmentation. In Medical Image Computing and Computer-Assisted Intervention (MICCAI) , pages 151–160, 2022. 2 [57] Femke Vaassen, Colien Hazelaar, Ana Vaniqui, Mark Good-ing, Brent van der Heyden, Richard Canters, and Wouter van Elmpt. Evaluation of measures for assessing time-saving of automatic organ-at-risk segmentation in radiother-apy. Physics and Imaging in Radiation Oncology , 13:1–6, 2020. 1, 8 [58] Shalini K. Vinod, Michael G. Jameson, Myo Min, and Lois C. Holloway. Uncertainties in volume delineation in radiation oncology: A systematic review and recommenda-tions for future studies. Radiotherapy and Oncology , 121(2): 169–179, 2016. 1 [59] Peng Wang, An Yang, Rui Men, Junyang Lin, Shuai Bai, Zhikang Li, Jianxin Ma, Chang Zhou, Jingren Zhou, and Hongxia Yang. OFA: Unifying architectures, tasks, and 
+
+11 modalities through a simple sequence-to-sequence learning framework. In Proc. 39th International Conference on Ma-chine Learning (ICML) , 2022. 2 [60] Cong Wei, Haoxian Tan, Yujie Zhong, Yujiu Yang, and Lin Ma. LaSagnA: Language-based segmentation assistant for complex queries. arXiv preprint arXiv:2404.08506 , 2024. 2 [61] Linshan Wu, Yuxiang Nie, Sunan He, Jiaxin Zhuang, Luyang Luo, Tao Li, Zhuoyao Xie, Dexuan Chen, Yinghua Zhao, Neeraj Mahboobani, et al. A universal foundation model for grounded biomedical image interpretation. Nature Commu-nications , 2026. 2, 3, 4, 5 [62] Jinjin Xu, Liwu Xu, Yuzhe Yang, Xiang Li, Fanyi Wang, Yanchun Xie, Yi-Jie Huang, and Yaqian Li. u-LLaVA: Uni-fying multi-modal tasks via large language model. In Eu-ropean Conference on Artificial Intelligence (ECAI) , 2024. 2[63] Zhao Yang, Jiaqi Wang, Yansong Tang, Kai Chen, Heng-shuang Zhao, and Philip H. S. Torr. LAVT: Language-aware vision transformer for referring image segmentation. In Proc. IEEE/CVF Conference on Computer Vision and Pat-tern Recognition (CVPR) , 2022. 1 [64] Shuchang Ye, Mingyuan Meng, Mingjian Li, Dagan Feng, and Jinman Kim. SGSeg: Enabling text-free inference in language-guided segmentation of chest x-rays via self-guidance. In Medical Image Computing and Computer-Assisted Intervention (MICCAI) , 2024. 1, 2 [65] Feiyang Yu, Mark Endo, Rayan Krishnan, Ian Pan, Andy Tsai, Eduardo Pontes Reis, Eduardo Kaiser Ururahy Nunes Fonseca, Henrique Min Ho Lee, Zahra Shakeri Hossein Abad, Andrew Y. Ng, Curtis P. Langlotz, Vasantha Kumar Venugopal, and Pranav Rajpurkar. Evaluating progress in automatic chest X-ray radiology report generation. Patterns ,4(9):100802, 2023. 17 [66] Jiahui Yu, Zirui Wang, Vijay Vasudevan, Legg Yeung, Mo-jtaba Seyedhosseini, and Yonghui Wu. CoCa: Contrastive captioners are image-text foundation models. Transactions on Machine Learning Research (TMLR) , 2022. 4 [67] Haobo Yuan, Xiangtai Li, Tao Zhang, Yueyi Sun, Zilong Huang, Shilin Xu, Shunping Ji, Yunhai Tong, Lu Qi, Ji-ashi Feng, and Ming-Hsuan Yang. Sa2VA: Marrying SAM2 with MLLM for dense grounded understanding of images and videos. IEEE Transactions on Pattern Analysis and Ma-chine Intelligence (TPAMI) , 2026. 2 [68] Haotian Zhang, Pengchuan Zhang, Xiaowei Hu, Yen-Chun Chen, Liunian Harold Li, Xiyang Dai, Lijuan Wang, Lu Yuan, Jenq-Neng Hwang, and Jianfeng Gao. GLIPv2: Uni-fying localization and vision-language understanding. In Ad-vances in Neural Information Processing Systems (NeurIPS) ,2022. 2 [69] Tianyi Zhang, Varsha Kishore, Felix Wu, Kilian Q. Wein-berger, and Yoav Artzi. BERTScore: Evaluating text gener-ation with BERT. In International Conference on Learning Representations (ICLR) , 2020. 17, 18 [70] Theodore Zhao, Yu Gu, Jianwei Yang, Naoto Usuyama, Ho Hin Lee, Sid Kiblawi, Tristan Naumann, Jianfeng Gao, Angela Crabtree, Jacob Abel, et al. A foundation model for joint segmentation, detection and recognition of biomedical objects across nine modalities. Nature methods , 22(1):166– 176, 2025. 1, 2, 5 [71] Theodore Zhao, Sid Kiblawi, Naoto Usuyama, Ho Hin Lee, Sam Preston, Hoifung Poon, and Mu Wei. Boltzmann at-tention sampling for image analysis with small objects. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vi-sion and Pattern Recognition (CVPR) , pages 25950–25959, 2025. 2, 5 [72] Ziheng Zhao, Yao Zhang, Chaoyi Wu, Xiaoman Zhang, Weidi Xie, et al. Large-vocabulary segmentation for med-ical images with text prompts. npj Digital Medicine , 2025. 2[73] Yi Zhong, Mengqiu Xu, Kongming Liang, Kaixin Chen, and Ming Wu. Ariadne’s thread: Using text prompts to improve segmentation of infected areas from chest x-ray images. In 
+
+Medical Image Computing and Computer-Assisted Interven-tion (MICCAI) , pages 724–733, 2023. 2 [74] Yue Zhou, Houjin Chen, Yanfeng Li, Qin Liu, Xuanang Xu, Shu Wang, Pew-Thian Yap, and Dinggang Shen. Multi-task learning for segmentation and classification of tumors in 3D automated breast ultrasound images. Medical Image Analy-sis , 70:101918, 2021. 3 [75] Jinguo Zhu, Weiyun Wang, Zhe Chen, Zhaoyang Liu, Shen-glong Ye, Lixin Gu, Hao Tian, Yuchen Duan, Weijie Su, Jie Shao, Zhangwei Gao, Erfei Cui, Xuehui Wang, Yue Cao, Yangzhou Liu, Xingguang Wei, Hongjie Zhang, Haomin Wang, Weiye Xu, Hao Li, Jiahao Wang, Nianchen Deng, Songze Li, Yinan He, Tan Jiang, Jiapeng Luo, Yi Wang, Conghui He, Botian Shi, Xingcheng Zhang, Wenqi Shao, Junjun He, Yingtong Xiong, Wenwen Qu, Peng Sun, Pen-glong Jiao, Han Lv, Lijun Wu, Kaipeng Zhang, Huipeng Deng, Jiaye Ge, Kai Chen, Limin Wang, Min Dou, Lewei Lu, Xizhou Zhu, Tong Lu, Dahua Lin, Yu Qiao, Jifeng Dai, and Wenhai Wang. InternVL3: Exploring advanced train-ing and test-time recipes for open-source multimodal mod-els. arXiv preprint arXiv:2504.10479 , 2025. 14 [76] Xueyan Zou, Jianwei Yang, Hao Zhang, Feng Li, Linjie Li, Jianfeng Wang, Lijuan Wang, Jianfeng Gao, and Yong Jae Lee. Segment everything everywhere all at once. In Ad-vances in Neural Information Processing Systems (NeurIPS) ,2023. 1 
+
+12 A. Appendix 
+
+A.1. Method and implementation details 
+
+A.1.1. Training and inference 
+
+This section details the CT preprocessing, training and in-ference pipelines. 
+
+Target construction. The decomposition of Sec. 3 uses a fixed IoC threshold of 0.2 for a component the report places only at the organ level. Spatial proximity is mea-sured as the surface distance from a component to a sub-organ. The surface-distance rule also fills a stated slot when a suborgan’s reported tumor count exceeds its over-lapping components. Across the 14 ,584 tumor components, the suborgan-count step accounts for 11 ,958 and the organ-level rule handles the remaining 2,618 , while IoC assigns 
+
+13 ,723 and surface distance assigns 853 . Splitting the two jointly, 80 .4% of components are suborgan-stated and as-signed by IoC, 1.6% suborgan-stated by surface distance, 
+
+13 .7% organ-level by IoC, and 4.3% organ-level by surface distance. 
+
+CT preprocessing. The language encoder and the seg-mentation module follow different pipelines. The language encoder consumes a fixed 240 × 240 × 140 volume, pro-duced by resampling to (1 .5, 1.5, 3.0) mm and then center-cropping or padding, clipped to [−1000 , 1000] HU and min–max normalized to [−1, 1] . The segmentation module trains on 1 mm isotropic, z-score-normalized 192 3 patches. The segmentation volume is first padded so every dimen-sion is at least 192 , and a 192 3 patch is then drawn per volume by a foreground-biased crop that samples tumor-positive and tumor-negative centers in equal proportion. Aside from the random crop location, no data augmentation is applied. 
+
+Losses. Segmentation uses voxel-wise sigmoid cross-entropy and Dice loss summed 1:1 , and the language tasks use standard language-model cross-entropy. The two are summed according to the task composition of each batch. 
+
+Optimization. RepConTUR trains for 20 epochs on four NVIDIA H100 80GB GPUs in bf16 mixed precision. Dis-tributed training uses the DeepSpeed ZeRO-2 strategy, with a per-GPU batch of 4 and gradient accumulation of 8, giving an effective batch of 128 and a maximum sequence length of 8192 . The optimizer is AdamW ( β=(0 .9, 0.999) , weight decay 0.05 ) with learning rate 4×10 −5 and gradient norms clipped to 1, using one epoch of linear warmup at ratio 0.05 
+
+followed by cosine annealing. The LoRA adapter has rank 
+
+64 and α=128 .
+
+VQA generation. The VQA pairs are generated with GPT-5.4 and verified with GPT-5.4-mini, which corrects or discards pairs inconsistent with the report. 
+
+Inference. At inference RepConTUR segments the full volume by sliding-window inference with a 192 3 window and 50% overlap, caching the language-model features of the fixed-grid volume and prompt so they are computed once and reused across suborgan prompts, as detailed in Sec. A.4.1. 
+
+A.1.2. Out-of-distribution sets Cohort construction and exclusion criteria. The four out-of-distribution cohorts (Tab. 5) are built from pub-lic TCIA collections, namely HCC-TACE-Seg [39, 40], Colorectal-Liver-Metastases [53, 54], CPTAC-PDA [42, 49] and CPTAC-CCRCC [41, 48]. The four cohorts span three organs and both primary and metastatic disease, and each targets a distinct clinical scenario. HCC-TACE-Seg contains primary hepatocellular carcinoma imaged in a transarterial-chemoembolization cohort, so it probes delin-eation of primary liver tumors whose appearance is altered by locoregional therapy. Colorectal-Liver-Metastases con-tains multifocal colorectal liver metastases, so it probes sen-sitivity to several scattered deposits rather than to a sin-gle tumor. CPTAC-PDA contains pancreatic ductal ade-nocarcinoma, an infiltrative and low-contrast primary, so it probes the hardest abdominal target, where small tumors are the primary detection challenge. CPTAC-CCRCC contains clear cell renal cell carcinoma and probes primary renal-tumor delineation, the organ on which the vision-only spe-cialist was strongest in domain. The evaluation unit is the CT series rather than the pa-tient, so a patient with several eligible contrast phases con-tributes several scans. The HCC-TACE-Seg CT series in-terleaves two to three contrast phases, so we separate the phases by acquisition and keep every phase that contains the tumor, yielding 130 scans from 105 patients. CPTAC-PDA and CPTAC-CCRCC likewise yield 108 scans from 
+
+67 and 47 patients, and Colorectal-Liver-Metastases con-tributes one scan per patient for 197 scans. We exclude contours drawn on MR or PET series and discard any scan whose contours do not rasterize to a non-empty tumor mask on the CT grid. 
+
+Synthetic report generation. Because the four cohorts provide no radiology reports, we synthesize a report for each scan with the same construction pipeline used for Ab-domenAtlas 3.0 [4]. Because these sets also lack organ an-notations, we first obtain multi-organ and suborgan masks with a pretrained MedFormer segmentation model [4] and pair them with each set’s ground-truth tumor masks. From the combined masks a structured report is derived determin-istically by the same construction as RadGPT [4], listing per suborgan the tumor count, size, location and attenuation, as in Sec. 3. OpenAI’s gpt-5.6-terra then rewrites the structured report into a narrative free-text report in the AbdomenAtlas 3.0 style, using the same system prompt as RadGPT [4]. 13 A.2. Additional ablations and analyses 
+
+A.2.1. LLM backbone ablation 
+
+RepConTUR uses a 1B medical pretrained LLM backbone. Table A.1 replaces it with the general-domain InternVL3-2B and InternVL3-8B [75] under the identical multitask recipe and segmentation module, on the test split as a 3-organ macro mean consistent with Tab. 1. The 1B medical backbone attains higher DSC, instance-wise Recall, Preci-sion and F1 than both general backbones in both inference modes. Increasing the general backbone from 2B to 8B nar-rows the gap but does not close it. This implies that domain-adapted language pretraining contributes more than param-eter count on this task, although the backbones also differ in family. 
+
+Table A.1. LLM backbone ablation with the same recipe and seg-mentation module. Metrics as in Tab. 1, macro mean over three organs. Bold : highest per column.                                  
+
+> RES GSEG Backbone DSC RPF1 DSC RPF1 InternVL3-2B (general) 0.399 0.572 0.340 0.421 0.471 0.644 0.352 0.450 InternVL3-8B (general) 0.485 0.661 0.360 0.466 0.506 0.661 0.397 0.495 RepConTUR ( 1B medical) 0.510 0.674 0.397 0.499 0.523 0.677 0.433 0.528
+
+A.2.2. Vision encoder initialization 
+
+RepConTUR pretrains its 3D CT encoder on two datasets, CT-RATE [24] and Merlin [8], to widen its body-region coverage. Table A.2 compares this against initialization from the CT-RATE-only encoder [24], on the test split with the same recipe. Our encoder yields marginally higher re-call and DSC, while precision is essentially equal. 
+
+Table A.2. Vision encoder initialization with the same recipe, CT-RATE +Merlin for RepConTUR vs. CT-RATE only [24]. Metrics as in Tab. 1, macro mean over three organs. Bold : highest per column. 
+
+RES GSEG Encoder init DSC R P F1 DSC R P F1 CT-RATE only 0.506 0.654 0.397 0.493 0.521 0.655 0.432 0.520 RepConTUR 0.510 0.674 0.397 0.499 0.523 0.677 0.433 0.528 
+
+A.2.3. Size-stratified segmentation metrics 
+
+Table A.3 splits the Tab. 1 test-split tumor metrics at a tu-mor long-axis threshold of 1 cm. For every model the pre-cision deficit is concentrated in the small ( <1 cm) band, whereas the large ( ≥1 cm) band is comparatively well re-solved. The promptable baselines lose almost all preci-sion on small tumors, with mean small-band RES preci-sion 0.005 for VoxTell, 0.019 for UniBioMed and 0.031 for BiomedParse v2, against 0.179 for RepConTUR. Biomed-Parse v2 attains the highest small-band recall at mean 0.521 
+
+but the lowest large-band precision at 0.145 , indicating dense over-segmentation rather than localization. The base-line precision remains low even on large tumors, with mean 
+
+≥1 cm RES precision 0.395 , 0.225 and 0.145 for Vox-Tell, UniBioMed and BiomedParse v2, against 0.646 for RepConTUR. Report conditioning in GSEG raises Rep-ConTUR small-band recall and precision over RES, lifting macro recall <1 from 0.486 to 0.582 and precision <1 from 
+
+0.179 to 0.202 . Small-tumor precision remains low for all models, including RepConTUR, for example on pancreas it moves only from 0.013 to 0.040 . For UniBioMed the report leaves the small band essentially unchanged, with precision <1 moving only from 0.019 to 0.020 .
+
+Table A.3. Table 1 metrics split at a 1 cm tumor long axis; DSC le :GT-referenced tumor Dice. BiomedParse v2 has no GSEG mode. 
+
+Bold : larger band per metric, organ and model.                                                                                                                                                                                                                                                                                           
+
+> Rs Gs Model Size DSC le RPF1 DSC le RPF1
+> Liver
+> VoxTell <10.152 0.272 0.007 0.013 0.108 0.191 0.003 0.006
+> ≥10.384 0.559 0.400 0.466 0.339 0.499 0.337 0.402
+> UniBioMed <10.230 0.423 0.033 0.062 0.245 0.448 0.036 0.067
+> ≥10.361 0.592 0.265 0.367 0.380 0.614 0.281 0.385
+> BiomedParse v2 <10.319 0.571 0.048 0.089 ————
+> ≥10.515 0.763 0.160 0.264 ————RepConTUR <10.268 0.475 0.226 0.306 0.275 0.486 0.264 0.342
+> ≥10.466 0.696 0.585 0.636 0.459 0.682 0.644 0.662 Kidney
+> VoxTell <10.105 0.182 0.006 0.012 0.064 0.113 0.004 0.008
+> ≥10.529 0.711 0.459 0.558 0.417 0.572 0.541 0.556
+> UniBioMed <10.237 0.456 0.025 0.048 0.234 0.448 0.025 0.046
+> ≥10.523 0.748 0.265 0.392 0.523 0.742 0.276 0.402
+> BiomedParse v2 <10.370 0.706 0.040 0.076 ————
+> ≥10.713 0.939 0.156 0.268 ————RepConTUR <10.351 0.625 0.298 0.403 0.349 0.615 0.303 0.406
+> ≥10.681 0.904 0.794 0.845 0.684 0.902 0.822 0.860 Pancreas
+> VoxTell <10.000 0.000 0.002 0.000 0.000 0.000 0.000 0.000
+> ≥10.262 0.451 0.326 0.378 0.206 0.352 0.312 0.331
+> UniBioMed <10.035 0.143 0.000 0.000 0.047 0.214 0.000 0.001
+> ≥10.181 0.412 0.145 0.214 0.187 0.422 0.166 0.238
+> BiomedParse v2 <10.095 0.286 0.004 0.007 ————
+> ≥10.387 0.732 0.118 0.204 ————RepConTUR <10.139 0.357 0.013 0.026 0.317 0.643 0.040 0.075
+> ≥10.358 0.637 0.560 0.596 0.363 0.644 0.596 0.619 Mean
+> VoxTell <10.086 0.151 0.005 0.008 0.057 0.101 0.002 0.005
+> ≥10.392 0.574 0.395 0.467 0.321 0.474 0.397 0.430
+> UniBioMed <10.167 0.341 0.019 0.036 0.175 0.370 0.020 0.038
+> ≥10.355 0.584 0.225 0.324 0.363 0.593 0.241 0.342
+> BiomedParse v2 <10.261 0.521 0.031 0.057 ————
+> ≥10.538 0.811 0.145 0.245 ————RepConTUR <10.253 0.486 0.179 0.245 0.314 0.582 0.202 0.274
+> ≥10.502 0.746 0.646 0.692 0.502 0.743 0.687 0.714
+
+A.2.4. Agentic inference pipeline: decomposing the source of false-positive suppression 
+
+In Sec. 5.4, the agentic inference pipeline supplies the report to RepConTUR at inference and is compared against the vision-only nnU-Net and report-supervised R-Super spe-cialists. This section decomposes that comparison, evalu-ating each model both on its own and under the agentic in-ference pipeline to isolate how much of the false-positive 14 suppression the pipeline contributes. Without the pipeline, RES and GSEG each run a single whole-organ pass, issuing one tumor prompt for the entire organ rather than decom-posing it into the report-named suborgans. Table A.4 reports this decomposition on the in-domain test set. Even without the pipeline, base GSEG exceeds the vision-only nnU-Net and R-Super specialists on liver and pancreas in DSC, precision and F1, and base RES exceeds them in precision and F1, for example liver GSEG F1 0.485 
+
+against 0.286 for nnU-Net and 0.319 for R-Super, while on kidney nnU-Net remains higher at F1 0.553 . Base GSEG attains higher F1 than base RES on all three organs, 0.485 ,
+
+0.495 and 0.320 against 0.438 , 0.453 and 0.249 . The agen-tic pipeline improves both further, chiefly through preci-sion, raising liver GSEG precision from 0.396 to 0.559 and F1 to 0.594 . With the pipeline the agentic GSEG exceeds both pipeline-restricted specialists on liver and pancreas in F1, reaching 0.594 and 0.475 against the best specialist F1 of 0.485 and 0.452 , while nnU-Net attains the highest kid-ney F1 at 0.661 .Table A.5 repeats the decomposition on the four external cohorts. Each cohort has a single GT-positive organ, so the base and +agentic rows differ only in whether the organ is prompted as a whole or decomposed into the report-named suborgans. Averaged over the four cohorts, every variant of RepConTUR attains a higher precision and F1 than both specialists, with F1 from 0.470 to 0.547 against 0.415 for nnU-Net and 0.426 for R-Super. GSEG +agentic also at-tains the highest mean DSC and recall at 0.666 and 0.790 .RES +agentic and both GSEG variants exceed the nnU-Net DSC of 0.655 , which only base RES does not reach at 
+
+0.647 , and only GSEG +agentic exceeds the R-Super recall of 0.786 .Across both evaluation sets, the agentic pipeline benefits RES more than GSEG. On the in-domain set, it raises mean RES F1 by 0.163 , from 0.380 to 0.543 , and mean GSEG F1 by 0.115 , from 0.433 to 0.548 , mainly through precision, which rises from 0.271 to 0.468 for RES and from 0.326 
+
+to 0.478 for GSEG. On the external cohorts, it raises mean RES F1 from 0.470 to 0.501 , mainly on CPTAC-CCRCC, where precision rises from 0.213 to 0.303 . Mean GSEG F1 there is comparable with and without the pipeline, at 0.547 
+
+and 0.544 , as recall rises from 0.770 to 0.790 and precision falls from 0.448 to 0.432 . Most of this recall gain comes from the multifocal CRLM cohort. This pattern is consistent with the report already sup-plying GSEG the tumor locations that the pipeline adds. The report names the organs and suborgans that contain tumors, whereas RES receives only the referring phrase. The pipeline prompts only the report-named organs on the in-domain set and decomposes each organ into its report-named suborgans on both sets, so its targets may add less new information to GSEG than to RES. The suborgan tar-
+
+Table A.4. In-domain decomposition of false-positive suppres-sion. Base: RES/GSEG with one whole-organ prompt, specialists unrestricted; +agentic: suborgan prompts, or for nnU-Net and R-Super, predictions restricted to the reported organs. DSC: image-wise mean over GT-positive cases; R/P/F1 as in Tab. 1; Mean: macro mean over organs. Bold /underline: best/second per col-umn.                                                                                                                                                      
+
+> Organ Model DSC RPF1 Liver nnU-Net 0.603 0.568 0.191 0.286 nnU-Net +agentic 0.602 0.566 0.392 0.463 R-Super 0.580 0.518 0.230 0.319 R-Super +agentic 0.580 0.517 0.457 0.485 RES 0.600 0.637 0.334 0.438 RES +agentic 0.610 0.659 0.550 0.599
+> GSEG 0.629 0.624 0.396 0.485 GSEG +agentic 0.612 0.633 0.559 0.594 Kidney nnU-Net 0.677 0.765 0.433 0.553 nnU-Net +agentic 0.664 0.751 0.590 0.661
+> R-Super 0.657 0.795 0.320 0.456 R-Super +agentic 0.652 0.784 0.435 0.559 RES 0.612 0.765 0.321 0.453 RES +agentic 0.626 0.695 0.503 0.584 GSEG 0.629 0.758 0.367 0.495 GSEG +agentic 0.625 0.689 0.493 0.575 Pancreas nnU-Net 0.367 0.554 0.101 0.170 nnU-Net +agentic 0.367 0.554 0.297 0.387 R-Super 0.392 0.612 0.138 0.225 R-Super +agentic 0.392 0.612 0.359 0.452 RES 0.379 0.568 0.159 0.249 RES +agentic 0.393 0.619 0.350 0.447 GSEG 0.406 0.626 0.215 0.320 GSEG +agentic 0.403 0.626 0.383 0.475
+> Mean nnU-Net 0.549 0.629 0.242 0.336 nnU-Net +agentic 0.544 0.624 0.426 0.504 R-Super 0.543 0.642 0.229 0.333 R-Super +agentic 0.542 0.638 0.417 0.499 RES 0.530 0.657 0.271 0.380 RES +agentic 0.543 0.658 0.468 0.543 GSEG 0.554 0.669 0.326 0.433 GSEG +agentic 0.547 0.649 0.478 0.548
+
+gets do not carry the remaining report content, such as at-tenuation, size and count. On the external cohorts, RES 
+
++agentic remains below base GSEG in mean precision and F1, at 0.390 and 0.501 against 0.448 and 0.547 . Sec-tion A.2.5 illustrates on three cases that GSEG places high relevancy on such report attributes. 
+
+A.2.5. Report-word relevancy 
+
+We attribute the produced tumor mask to individual report words using the generic gradient-weighted attention rollout of Chefer et al. [12], computed over the language-model self-attention. The backward target is the mean foreground segmentation logit inside the reference tumor crop, so the attribution scores each report token by its influence on the mask. Each word is scored by max-pooling the relevancy over its subword tokens. We compute it on three in-domain GSEG cases spanning kidney, pancreas and liver. Relative to RES, the report clears 19 false positives on the kidney case and raises DSC from 0.285 to 0.651 , moves the pan-creas case from a missed to a recovered tumor at DSC 0.097 
+
+to 0.591 , and recovers a second true tumor on the multifocal liver case at DSC 0.246 to 0.436 .Figure A.1 shows the per-word relevancy over the narra-15 Table A.5. External-cohort version of Tab. A.4; metrics as in Tab. 1. One GT-positive organ per cohort, so nnU-Net and R-Super appear once. Mean: macro mean over four cohorts. 
+
+Bold /underline: best/second per column.                                                                                                                                            
+
+> Dataset Model DSC RPF1 HCC-TACE liver (n=130 )
+> nnU-Net 0.650 0.679 0.134 0.223 R-Super 0.597 0.653 0.111 0.190 RES 0.707 0.668 0.212 0.322 RES +agentic 0.719 0.689 0.225 0.340 GSEG 0.725 0.689 0.302 0.420
+> GSEG +agentic 0.727 0.694 0.293 0.412 CPTAC-PDA pancreas (n=108 )
+> nnU-Net 0.492 0.766 0.287 0.418 R-Super 0.471 0.793 0.449 0.573 RES 0.475 0.802 0.387 0.522 RES +agentic 0.488 0.793 0.389 0.522 GSEG 0.504 0.793 0.476 0.595
+> GSEG +agentic 0.503 0.802 0.443 0.571 CPTAC-CCRCC kidney (n=108 )
+> nnU-Net 0.804 0.943 0.240 0.383 R-Super 0.791 0.943 0.187 0.312 RES 0.790 0.935 0.213 0.346 RES +agentic 0.799 0.927 0.303 0.457 GSEG 0.808 0.927 0.341 0.499 GSEG +agentic 0.807 0.927 0.348 0.506
+> CRLM liver (n=197 )
+> nnU-Net 0.672 0.731 0.565 0.637 R-Super 0.611 0.756 0.539 0.630 RES 0.617 0.686 0.696 0.691
+> RES +agentic 0.625 0.731 0.643 0.684 GSEG 0.623 0.672 0.674 0.673 GSEG +agentic 0.626 0.737 0.644 0.687 Mean nnU-Net 0.655 0.780 0.307 0.415 R-Super 0.618 0.786 0.322 0.426 RES 0.647 0.773 0.377 0.470 RES +agentic 0.658 0.785 0.390 0.501 GSEG 0.665 0.770 0.448 0.547
+> GSEG +agentic 0.666 0.790 0.432 0.544
+
+tive report for the three cases. Each report states, per sub-organ, the tumor count, size, location and attenuation, to-gether with organ-level descriptors such as organ volume and mean Hounsfield unit, and for the pancreas case an added description of tumor contact with the abdominal ves-sels. We express each word score as a ratio to an even split, namely the word score divided by the mean word score of its report. The median word lies at 0.25 × to 0.33 × across the three cases. The highest ratio in each case falls on the tumor location, namely kidney in right kidney at 25 .5× with 
+
+right at 9.8× on the kidney case, tail at 50 .2× on the pan-creas case, and the segment number at 11 .6× with segment 
+
+at 8.9× on the liver case. Attenuation reaches 14 .7× for 
+
+hyperattenuating on the pancreas case and 7.8× for hypoat-tenuating on the liver case, against 1.8× on the kidney case. On the liver case the count word two reaches 7.2× and the size figures up to 10 .6×, and on the pancreas case the size figure reaches 7.9×. On the pancreas case the vessel abbre-viations IVC and SMV reach 5.9× and 4.4×, whereas the relation words contact and encase reach 1.6× and 0.5×.Organ names also reach high ratios, including non-target organs such as liver at 9.8× and spleen at 6.2× on the pancreas case. Organ-level measurements such as volume and mean Hounsfield unit stay near 1.0× on the pancreas case and below 5× on all three cases. This indicates that 
+
+Figure A.1. Report-word relevancy for three in-domain GSEG cases, one per organ, by gradient-weighted attention rollout [12]. Each word takes the maximum relevancy over its subword tokens; color is its ratio to the mean word relevancy of its report, on a log scale shared across rows from white at or below 1× to 64 ×.
+
+relevancy is highest on the report tumor location, followed by attenuation, size and count, and is at most 1.6× on the tumor-vessel relation. Because organ names without a tu-mor role also reach high ratios, relevancy alone does not establish that a word is used. 16 VQA (multifocal liver case) 
+
+Yes/No. Are all liver lesions hypoattenuating? 
+
+RepConTUR: Yes reference: Yes 
+
+UniBioMed: No 
+
+Multiple choice. Attenuation of the largest liver lesion rel-ative to liver? (A) hyperattenuating (B) hypoattenuating (C) isoattenuating (D) heterogeneous 
+
+RepConTUR: B reference: B 
+
+UniBioMed: T2b 
+
+Short answer. Which hepatic segment contains the largest liver lesion? 
+
+RepConTUR: Segment 2 reference: Segment 7/8 
+
+UniBioMed: Posterior 
+
+RRG (bilateral kidney case) 
+
+Prompt. Generate the findings and impression for this CT. 
+
+RepConTUR: The patient has an enlarged spleen, measur-ing 330.1 cc in volume. The liver is of normal size, with a volume of 1853.1 cc. The pancreas is also enlarged, with a volume of 103.1 cc. The bilateral kidneys are enlarged, with the right kidney measuring 216.1 cc and the left kidney mea-suring 221.2 cc. There are two kidney lesions identified. The first is located in the right kidney, measuring 1.0 ×0.8 cm, and is hypoattenuating. The second is located in the left kidney, measuring 0.8 ×0.6 cm, and is also hypoattenuating. IMPRESSION: an enlarged spleen, pancreas, and kidneys, with two hypoattenuating kidney masses, the largest in the right kidney measuring 1.0 ×0.8 cm. 
+
+UniBioMed: -. (degenerate output, shown verbatim) 
+
+Reference: The patient has an enlarged spleen, measuring 349.8 cc in volume. The liver is of normal size. The pan-creas is enlarged, with a volume of 155.2 cc. Both kidneys are also enlarged, with a total kidney volume of 493.3 cc. Multiple hypoattenuating kidney lesions are present. The largest is located in the right kidney, measuring 3.6 ×3.3 cm. Two smaller lesions are present, one in the left kidney mea-suring 1.1 ×0.9 cm and another in the right kidney measur-ing 1.1 ×0.6 cm. IMPRESSION: enlarged spleen, pancreas, and kidneys, with multiple hypoattenuating kidney masses, the largest measuring 3.6 ×3.3 cm in the right kidney. 
+
+Figure A.2. VQA on a multifocal liver case and RRG on a bilateral-kidney case from the in-domain cohort, each with one axial CT slice in radiological orientation and the reference tumor mask in red. Green/red: RepConTUR expressions that match/contradict the reference, which is lightly abridged. 
+
+A.3. Language tasks 
+
+A.3.1. VQA and RRG 
+
+In this section we report the language tasks on the in-domain test cohort, comparing RepConTUR with the UniBioMed baseline. For report generation UniBioMed conditions on sixteen randomly sampled 2D slices rather than the full CT volume. We use exact-match accuracy per question type for VQA and BLEU, ROUGE-L, ME-TEOR [2] and BERTScore [69] for RRG. BERTScore-F1 uses DistilBERT ( distilbert-base-uncased ) fol-lowing the radiology-report protocol of [65]. As shown in Tab. A.6, RepConTUR exceeds the UniBioMed baseline on every metric. The gap is largest on multiple-choice VQA, 
+
+0.640 against 0.006 , and on report generation, where Rep-ConTUR attains BERTScore-F1 0.593 against 0.073 and ROUGE-L 0.377 against 0.107 . Overall VQA accuracy is 
+
+0.732 against 0.294 . The report-generation gap may partly reflect this input bottleneck, since the sampled 2D slices barely capture the quantitative content of these reports, namely organ volumes, three-dimensional tumor sizes and tumor counts. In our runs the UniBioMed report head of-ten returns empty strings. Figure A.2 gives one qualitative example for each task. 17 Table A.6. Language tasks on the in-domain cohort, n=373 re-ports and 7,011 VQA questions. MC: multiple choice; B-1/B-4: BLEU-1/4; R-L: ROUGE-L; M: METEOR [2]; BS: BERTScore-F1 [69]. Bold : highest per column.                             
+
+> VQA accuracy RRG Model Y/N MC Short All B-1 B-4 R-L MBS UniBioMed 0.434 0.006 0.004 0.294 0.072 0.006 0.107 0.086 0.073 RepConTUR 0.848 0.640 0.406 0.732 0.329 0.168 0.377 0.299 0.593
+
+A.4. Computational cost 
+
+A.4.1. Inference latency 
+
+Table A.7. Computational cost on one in-domain volume with 7
+
+suborgan targets, NVIDIA RTX A5000, batch 1, bfloat16, sliding-window pass only. Input: the original volume at 0.63 × 0.63 ×
+
+1.5 mm, which each model resamples to its own plan. Inference Time: mean over repeated runs, s.d. below 0.1 s.                                     
+
+> Model Params Input ( W×H×D)Inference Time (s) nnU-Net (specialist) 102 M512 ×394 ×419 6.2
+> R-Super (specialist) 37 .9M512 ×394 ×419 24 .6
+> RepConTUR (RES) 1.41 B512 ×394 ×419 23 .7
+> RepConTUR (GSEG) 1.41 B512 ×394 ×419 23 .7
+
+We compare inference cost against the two vision-only specialists, nnU-Net and R-Super. All models run on the same GPU, an NVIDIA RTX A5000, on a single in-domain test volume. We time the network sliding-window pass and average over repeated runs, with a per-value standard devi-ation below 0.1 s. The volume is the most tumor-involved case in the cohort, with 7 suborgan targets across all three organs, and approximates the upper end of RepConTUR cost. Both specialists run a single vision-only sliding-window pass. For RepConTUR the measurement exercises its inference caching. The multimodal encoder computes the image features once and memoizes them for reuse across all suborgan prompts. The report prefix, namely the image tokens and, for GSEG, the narrative report, is prefilled once into the language-model key-value cache. It is reused for every suborgan prompt, which differs only in the trailing target phrase. The segmentation branch encodes the 192 3
+
+sliding window once per call and shares it across targets, de-coding one mask per suborgan from the common features. RES and GSEG differ only in the prefill length. Table A.7 shows that RES and GSEG have the same measured infer-ence time in this setting. nnU-Net is fastest at 6.2 s, and RepConTUR and R-Super are comparable at 23 .7 s and 24 .6 s, with R-Super timed under GPU-side window aggregation. R-Super and RepConTUR run a 1 mm isotropic sliding window over the finer 324 × 249 × 628 grid, with 128 3 and 192 3
+
+patches. nnU-Net’s self-configured plan instead resam-ples to a coarser 0.86 × 0.86 × 2.0 mm spacing, giving a 
+
+376 × 289 × 314 grid tiled with a 256 × 192 × 112 patch, so it evaluates substantially fewer windows. The RepCon-TUR cost decomposes into a one-time encoding and a per-suborgan decode. The multimodal image encoding is neg-ligible at 0.01 s. The grounding sliding-window encoding over the 1 mm grid costs approximately 5 s and is computed once per volume. Each suborgan target then adds approxi-mately 2.7 s for its own mask decode, so latency grows lin-early with the number of targets, from 7.6 s for one target to 23 .7 s for all seven. 18
