@@ -1,0 +1,98 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-10-31T22:18:35.626514+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 1,
+    "deep_divecandidates": 0,
+    "deep_cap": 6,
+    "deep_selected": 0,
+    "quick_candidates": 2,
+    "quick_skim_target": 11,
+    "quick_selected": 2
+  },
+  "deep_dive": [],
+  "quick_skim": [
+    {
+      "id": "2610.33554v1",
+      "source": "arxiv",
+      "title": "End-to-end prostate lesion segmentation and detection from undersampled diffusion-weighted MRI",
+      "abstract": "Automated prostate lesion detection from diffusion-weighted MR imaging (DWI) conventionally relies on reconstructed images and does not fully use all acquisition information. We present an end-to-end network that uses complex multicoil DWI data and coil sensitivity information for prostate lesion segmentation.   We included 269 fastMRI prostate examinations with additional voxel-level lesion annotations. Of these, 64 examinations contained PIRADS 4 or 5 lesions. The proposed network, VarNet-Seg, consists of a k-space variational network (VarNet) with six variational cascades and an image-space 3D segmentation U-Net. Comparator models used the same segmentation architecture with fully coil-combined images (CC-Seg), fixed root-sum-of-squares reconstruction (RSS-Seg), or fixed SENSE reconstruction (SENSE-Seg). We performed ablations with end-to-end training and data consistency (DC) enabled or disabled. We evaluated lesion segmentation using Dice and patient-level detection using AUROC in five-fold cross-validation with full sampling, simulated undersampling, added noise, or both.   VarNet-Seg achieved the highest Dice at every undersampling level. At eight-fold acceleration, Dice was 0.22 for VarNet-Seg, 0.14 for SENSE-Seg and 0.16 for VarNet-Seg (no DC). The paired difference from SENSE-Seg was 0.08 (95% CI, 0.04-0.11). With full sampling, VarNet-Seg and RSS-Seg performed similarly (0.40 vs 0.39). Patient-level AUROC decreased from 0.75 with full sampling to 0.63 at eight-fold acceleration; corresponding RSS-Seg AUROCs were 0.76 and 0.64.   The proposed multicoil network improved prostate lesion segmentation under simulated undersampling compared to conventional models. Matched ablations supported contributions from both end-to-end training and data consistency. Prospective evaluation is needed to establish whether this approach can be used clinically in accelerated prostate DWI.",
+      "authors": [
+        "Lukas T. Rotkopf",
+        "Marco Schlimbach",
+        "Kevin Kröninger",
+        "Stefan O. Schoenberg",
+        "Heinz-Peter Schlemmer",
+        "Jens Kleesiek",
+        "Moritz Rempe"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV",
+        "physics.med-ph"
+      ],
+      "published": "2026-10-24T09:13:57+00:00",
+      "link": "https://arxiv.org/pdf/2610.33554v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "end-to-end MR prostate lesion segmentation from raw k-space data",
+      "llm_evidence_cn": "基于原始k空间数据的MRI前列腺病灶分割",
+      "llm_evidence": "基于原始k空间数据的MRI前列腺病灶分割",
+      "canonical_evidence": "基于原始k空间数据的MRI前列腺病灶分割",
+      "llm_tldr_en": "VarNet-Seg couples a k-space variational network with a 3D U-Net to segment prostate lesions directly from complex multicoil diffusion-weighted MRI, avoiding reconstructed-image pipelines.",
+      "llm_tldr_cn": "常规前列腺病灶自动检测依赖重建后图像，未能充分利用采集信息。作者提出端到端网络VarNet-Seg，将含六个变级联的k空间变分网络与图像域三维分割U-Net结合，直接以复数多线圈扩散加权MRI数据和线圈灵敏度作为输入。在269例fastMRI前列腺数据上，该方法与基于线圈合并图像的对照模型进行了比较。该工作展示了MR影像中病灶分割的端到端新范式。",
+      "llm_tldr": "常规前列腺病灶自动检测依赖重建后图像，未能充分利用采集信息。作者提出端到端网络VarNet-Seg，将含六个变级联的k空间变分网络与图像域三维分割U-Net结合，直接以复数多线圈扩散加权MRI数据和线圈灵敏度作为输入。在269例fastMRI前列腺数据上，该方法与基于线圈合并图像的对照模型进行了比较。该工作展示了MR影像中病灶分割的端到端新范式。",
+      "llm_tags": [
+        "query:rt-auto-seg"
+      ],
+      "matched_query_tag": "query:rt-auto-seg",
+      "matched_query_text": "Automatic segmentation of target volumes and organs at risk from CT, MR, PET, or CBCT images for radiotherapy.",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2610.35220v1",
+      "source": "arxiv",
+      "title": "O2D-MedNet: An Optimization-Aware Dual-Domain Framework for Robust Medical Image Segmentation",
+      "abstract": "Medical image segmentation (MIS) remains challenging due to composite degradations and multi-scale geometric variations, which jointly impair lesion-background separability, structural consistency, and optimization stability. Existing single-stream frameworks entangle heterogeneous cues within a single representation pathway, while hybrid-stream approaches often rely on generic or static fusion, limiting effective coordination across domains and failing to explicitly address optimization instability. To overcome these limitations, we propose a new optimization-aware dual-domain framework for MIS (O2D-MedNet). First, a degradation-aware dualdomain interaction (DDI) module integrates Fourier - and Wavelet-domain features to suppress degradation-sensitive responses while preserving structural and fine-detail information. Second, a cross-backbone contour-guided fusion (CGF) module enables selective interaction between CNN-based local detail modeling and visual state-space-based global structure modeling, improving boundary accuracy and representation consistency. Third, a gradient-context optimization (GCO) strategy stabilizes training by adaptively adjusting learning dynamics based on loss trends and gradient statistics, mitigating instability caused by class imbalance and heterogeneous sample difficulty. Extensive experiments on six benchmarks demonstrate consistent improvements over state-of-the-art MIS methods across multiple imaging modalities. Further analyses confirm enhanced sensitivity, structural consistency, and optimization stability, validating the effectiveness of the proposed O2D-MedNet for robust MIS under heterogeneous conditions.",
+      "authors": [
+        "Shipeng Hu",
+        "Miaohui Wang",
+        "Jing Qin",
+        "Sukun Tian",
+        "Yuchun Sun"
+      ],
+      "primary_category": "cs.CV",
+      "categories": [
+        "cs.CV"
+      ],
+      "published": "2026-10-26T11:11:47+00:00",
+      "link": "https://arxiv.org/pdf/2610.35220v1",
+      "tags": [
+        "keyword:RT-auto-seg",
+        "query:RT-auto-seg"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "robust medical image segmentation with dual-domain feature fusion",
+      "llm_evidence_cn": "双域特征融合的鲁棒医学图像分割",
+      "llm_evidence": "双域特征融合的鲁棒医学图像分割",
+      "canonical_evidence": "双域特征融合的鲁棒医学图像分割",
+      "llm_tldr_en": "O2D-MedNet is an optimization-aware dual-domain framework that fuses Fourier and wavelet features via degradation-aware interaction to stabilize and improve medical image segmentation.",
+      "llm_tldr_cn": "医学图像分割常受复合退化与多尺度几何变化影响，单流框架混淆异构线索，混合流方法又多采用静态融合。作者提出优化感知双域框架O2D-MedNet，设计退化感知双域交互模块融合傅里叶域与小波域特征，并显式关注优化稳定性。实验显示其在退化条件下提升了分割鲁棒性与结构一致性，该思路可用于放疗影像质量不佳时的靶区分割。",
+      "llm_tldr": "医学图像分割常受复合退化与多尺度几何变化影响，单流框架混淆异构线索，混合流方法又多采用静态融合。作者提出优化感知双域框架O2D-MedNet，设计退化感知双域交互模块融合傅里叶域与小波域特征，并显式关注优化稳定性。实验显示其在退化条件下提升了分割鲁棒性与结构一致性，该思路可用于放疗影像质量不佳时的靶区分割。",
+      "llm_tags": [
+        "query:rt-auto-seg"
+      ],
+      "matched_query_tag": "query:rt-auto-seg",
+      "matched_query_text": "Automatic segmentation of target volumes and organs at risk from CT, MR, PET, or CBCT images for radiotherapy.",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    }
+  ]
+}

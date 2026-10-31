@@ -1,0 +1,41 @@
+{
+  "date": "20261031",
+  "date_label": "",
+  "generated_at": "2026-10-31 22:19:14 UTC",
+  "recommend_exists": true,
+  "run_count": 1,
+  "papers": [
+    {
+      "paper_id": "2610.33554v1",
+      "route": "202610/31/2610.33554v1-end-to-end-prostate-lesion-segmentation-and-detection-from-undersampled-diffusion-weighted-mri",
+      "title": "End-to-end prostate lesion segmentation and detection from undersampled diffusion-weighted MRI",
+      "section": "quick",
+      "tags": [
+        {
+          "kind": "query",
+          "label": "rt-auto-seg"
+        }
+      ],
+      "score": 6.0,
+      "evidence": "基于原始k空间数据的MRI前列腺病灶分割",
+      "first_seen_at": "2026-10-31 22:19:14 UTC",
+      "updated_at": "2026-10-31 22:19:14 UTC"
+    },
+    {
+      "paper_id": "2610.35220v1",
+      "route": "202610/31/2610.35220v1-o2d-mednet-an-optimization-aware-dual-domain-framework-for-robust-medical-image-segmentation",
+      "title": "O2D-MedNet: An Optimization-Aware Dual-Domain Framework for Robust Medical Image Segmentation",
+      "section": "quick",
+      "tags": [
+        {
+          "kind": "query",
+          "label": "rt-auto-seg"
+        }
+      ],
+      "score": 6.0,
+      "evidence": "双域特征融合的鲁棒医学图像分割",
+      "first_seen_at": "2026-10-31 22:19:14 UTC",
+      "updated_at": "2026-10-31 22:19:14 UTC"
+    }
+  ]
+}
